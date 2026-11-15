@@ -61,12 +61,14 @@ export async function routeLLMRequest(
   }
 
   // 3. Execution with Resilient Cross-Provider Fallback
+  const defaultTokens = options.maxTokens ?? 512;
+
   if (primaryProvider === "groq") {
     try {
       const output = await generateWithGroq(prompt, {
         systemInstruction,
         temperature: options.temperature ?? 0.15,
-        maxTokens: options.maxTokens ?? 1024,
+        maxTokens: defaultTokens,
       });
       tokenStats.groqCalls++;
       responseCache.set(cacheKey, { output, timestamp: Date.now() });
@@ -76,7 +78,7 @@ export async function routeLLMRequest(
       const output = await generateWithGemini(prompt, {
         systemInstruction,
         temperature: options.temperature ?? 0.15,
-        maxOutputTokens: options.maxTokens ?? 1024,
+        maxOutputTokens: defaultTokens,
       });
       tokenStats.geminiCalls++;
       responseCache.set(cacheKey, { output, timestamp: Date.now() });
@@ -87,7 +89,7 @@ export async function routeLLMRequest(
       const output = await generateWithGemini(prompt, {
         systemInstruction,
         temperature: options.temperature ?? 0.15,
-        maxOutputTokens: options.maxTokens ?? 1024,
+        maxOutputTokens: defaultTokens,
       });
       tokenStats.geminiCalls++;
       responseCache.set(cacheKey, { output, timestamp: Date.now() });
@@ -97,7 +99,7 @@ export async function routeLLMRequest(
       const output = await generateWithGroq(prompt, {
         systemInstruction,
         temperature: options.temperature ?? 0.15,
-        maxTokens: options.maxTokens ?? 1024,
+        maxTokens: defaultTokens,
       });
       tokenStats.groqCalls++;
       responseCache.set(cacheKey, { output, timestamp: Date.now() });

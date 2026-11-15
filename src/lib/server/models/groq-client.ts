@@ -53,6 +53,8 @@ export async function generateWithGroq(
     content: prompt.trim(),
   });
 
+  const maxTokens = options.maxTokens ?? 512; // 512 tokens preserves OTPM within the 1000 limit
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -63,13 +65,18 @@ export async function generateWithGroq(
       model,
       messages,
       temperature: options.temperature ?? 0.15, // Deterministic greedy sampling
-      max_tokens: options.maxTokens ?? 1024,   // Strict token limit to save quota
+      max_tokens: maxTokens,
     }),
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    // If rate-limited (429) on primary model, fallback to alternative fast model (openai/gpt-oss-20b)
+    if (response.status === 429 && model !== "openai/gpt-oss-20b") {
+      console.warn(`[Groq] Rate limit hit on ${model}, falling back to openai/gpt-oss-20b...`);
+      return generateWithGroq(prompt, { ...options, model: "openai/gpt-oss-20b", maxTokens: 400 });
+    }
     throw new Error(`Groq API error (${response.status}): ${errorText}`);
   }
 

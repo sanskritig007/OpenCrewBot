@@ -85,7 +85,14 @@ export async function generateWithGemini(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    // If gemini-2.5-flash model name fails, fallback to gemini-1.5-flash
+    // If 503 (Temporary High Demand) or model unavailable, wait briefly and fallback to gemini-flash-latest
+    if (response.status === 503 || response.status === 429) {
+      if (model !== "gemini-flash-latest") {
+        console.warn(`[Gemini] ${response.status} high demand on ${model}, retrying with gemini-flash-latest...`);
+        await new Promise((r) => setTimeout(r, 1200));
+        return generateWithGemini(prompt, { ...options, model: "gemini-flash-latest" });
+      }
+    }
     if (model !== "gemini-flash-latest") {
       return generateWithGemini(prompt, { ...options, model: "gemini-flash-latest" });
     }

@@ -46,6 +46,7 @@ export function detectLanguage(text: string): "hinglish" | "hindi" | "english" |
 /**
  * Dynamically decomposes ANY arbitrary, unannounced business prompt into a custom DAG.
  * Evaluates semantic intent, maps optimal agent capabilities, and detects concurrency.
+ * Supports ANY prompt length — from single-sentence queries to 50+ line business case studies.
  */
 export function decomposeArbitraryPrompt(
   goal: string,
@@ -53,7 +54,9 @@ export function decomposeArbitraryPrompt(
   bots: Bot[]
 ): TaskNode[] {
   const nodes: TaskNode[] = [];
-  const lower = goal.toLowerCase();
+  // Normalize multi-line text into clean searchable string
+  const normalized = goal.replace(/[\r\n]+/g, " ").trim();
+  const lower = normalized.toLowerCase();
 
   // Find best candidate bots by capability
   const researcher = bots.find(b => b.handle === "researcher" || b.name.toLowerCase().includes("research")) || bots[0];
@@ -62,15 +65,46 @@ export function decomposeArbitraryPrompt(
   const marketing = bots.find(b => b.handle === "marketing" || b.name.toLowerCase().includes("market") || b.handle === "writer") || bots[1] || bots[0];
   const lead = bots.find(b => b.handle === "chief" || b.name.toLowerCase().includes("chief")) || bots[0];
 
-  // RULE 1: If the goal is a simple direct query (short word count or factual), use ONE single agent to save 100% redundant tokens!
-  const words = goal.trim().split(/\s+/);
-  const isSimpleQuery = words.length <= 5 && !lower.includes("compare") && !lower.includes("campaign") && !lower.includes("analysis") && !lower.includes("plan");
+  // 1. Semantic Intent Facet Extraction (Agnostic of word count or number of lines)
+  const hasResearch = /\b(research|competitor|benchmark|discover|investigate|explore|landscape|compare|comparison|audit)\b/i.test(lower);
+  const hasFinancialAnalysis = /\b(pricing|financial|revenue|cost|budget|model|spreadsheet|margin|profit|roi|valuation|metrics)\b/i.test(lower);
+  const hasMarketing = /\b(campaign|ambassador|outreach|social|launch|ad|advertis|promot|lead gen|campus|student engagement)\b/i.test(lower);
+  const hasTech = /\b(github|repo|code|bug|refactor|pull request|pr|commit|build|api|endpoint|script|vulnerability|stack trace)\b/i.test(lower);
+  const hasCommunication = /\b(email|leave|letter|memo|draft|write a message|announcement|notice|handover|resignation)\b/i.test(lower);
+  const hasDirectExplanation = /\b(explain|what is|how does|define|summarize|differentiate|who is|kya hai|kaise|batao|difference between)\b/i.test(lower);
 
-  if (isSimpleQuery) {
+  // Intent Facet Count - Used to determine single-agent frugality vs multi-agent collaboration
+  const multiFacets = [hasResearch, hasFinancialAnalysis, hasMarketing, hasTech].filter(Boolean).length;
+
+  // SCENARIO 1: Communication / Professional Drafting (Email, Leave, Memo, Handover, Notice)
+  // Even if prompt is 50 lines with detailed background, it is a single focused drafting task.
+  if (hasCommunication && multiFacets === 0) {
+    const isSending = /\b(send|dispatch|mail to|shoot email|forward)\b/i.test(lower);
+    nodes.push({
+      id: "task-1-draft-communication",
+      title: "Professional Communication & Executive Drafting",
+      description: `Draft a polished, context-aware, and structured communication based on the provided specifications.`,
+      assignedBotId: lead.id,
+      assignedRole: "Executive Communications Specialist",
+      dependencies: [],
+      status: "pending",
+      approvalRequired: isSending,
+      approvalPrompt: isSending
+        ? (language === "hinglish" ? "Communication draft taiyaar hai. Kya aap ise external recipient ko send karne ki permission dete hain?" : "Communication draft is ready. Do you approve dispatching this externally?")
+        : undefined,
+      retryCount: 0,
+      maxRetries: 1,
+    });
+    return nodes;
+  }
+
+  // SCENARIO 2: Single-Concept Direct Explanation / Factual Query
+  // Explaining a concept or answering a factual question needs 1 agent only, regardless of input length.
+  if (hasDirectExplanation && multiFacets === 0 && !hasCommunication) {
     nodes.push({
       id: "task-1-direct-response",
-      title: "Direct Factual Resolution",
-      description: `Provide a direct, high-precision answer for: "${goal}"`,
+      title: "Direct Factual & Conceptual Resolution",
+      description: `Provide a direct, high-precision structured explanation based on provided query context.`,
       assignedBotId: lead.id,
       assignedRole: "Direct Intelligence Specialist",
       dependencies: [],
@@ -82,8 +116,8 @@ export function decomposeArbitraryPrompt(
     return nodes;
   }
 
-  // Domain 1: Code / Software / Technical Repositories
-  if (lower.includes("github") || lower.includes("repo") || lower.includes("code") || lower.includes("bug") || lower.includes("refactor")) {
+  // SCENARIO 3: Technical Software & Codebase Operations
+  if (hasTech && !hasMarketing && !hasFinancialAnalysis) {
     nodes.push({
       id: "task-1-inspection",
       title: "Technical Codebase & Architecture Inspection",
@@ -98,8 +132,8 @@ export function decomposeArbitraryPrompt(
     });
 
     const approvalMsg = language === "hinglish"
-      ? "Maine repository inspect kar li hai. Code changes apply karne ke liye kya aap permission dete hain?"
-      : "Inspection complete. Do you approve applying proposed modifications to the repository?";
+      ? "Maine technical inspection complete kar li hai. Code modifications apply karne ke liye kya aap permission dete hain?"
+      : "Technical inspection complete. Do you approve applying proposed modifications to the repository?";
 
     nodes.push({
       id: "task-2-remediation",
@@ -117,8 +151,8 @@ export function decomposeArbitraryPrompt(
     return nodes;
   }
 
-  // Domain 2: Business / Competitor / Market / Financial Analysis
-  if (lower.includes("competitor") || lower.includes("pricing") || lower.includes("market") || lower.includes("sales") || lower.includes("financial") || lower.includes("spreadsheet")) {
+  // SCENARIO 4: Business / Competitor / Market / Financial Analysis (Multi-Agent Parallel DAG)
+  if (hasResearch || hasFinancialAnalysis) {
     nodes.push({
       id: "task-1-market-research",
       title: "Market & Competitor Discovery",
@@ -173,8 +207,8 @@ export function decomposeArbitraryPrompt(
     return nodes;
   }
 
-  // Domain 3: Marketing / Campaign / Student Outreach / Campus Programs
-  if (lower.includes("campaign") || lower.includes("marketing") || lower.includes("calendar") || lower.includes("ambassador") || lower.includes("campus") || lower.includes("outreach") || lower.includes("aspirations")) {
+  // SCENARIO 5: Marketing / Campus Outreach / Campaign Strategy (Multi-Agent Parallel DAG)
+  if (hasMarketing) {
     nodes.push({
       id: "task-1-audience-profiling",
       title: "Target Student Audience & Campus Tier Profiling",
@@ -216,12 +250,12 @@ export function decomposeArbitraryPrompt(
     return nodes;
   }
 
-  // Domain 4: UNIVERSAL / UNANNOUNCED BUSINESS CHALLENGE (Section 12 Readiness)
-  // For any new, unexpected problem thrown by evaluators (e.g. M&A, hiring, operations, supply chain)
+  // SCENARIO 6: UNIVERSAL / UNANNOUNCED BUSINESS CHALLENGE (Any length multi-line prompt)
+  // For unexpected case studies, operations dilemmas, supply chain or executive decisions
   nodes.push({
     id: "task-1-discovery-and-benchmarking",
-    title: `Discovery & Feasibility Benchmarking: "${goal.slice(0, 40)}..."`,
-    description: `Conduct deep domain research and competitive discovery for goal: ${goal}`,
+    title: `Discovery & Feasibility Benchmarking`,
+    description: `Conduct deep domain research and competitive discovery for provided challenge.`,
     assignedBotId: researcher.id,
     assignedRole: "Domain Intelligence Specialist",
     dependencies: [], // Parallel Branch 1
@@ -234,7 +268,7 @@ export function decomposeArbitraryPrompt(
   nodes.push({
     id: "task-2-analytical-modeling",
     title: "Risk, Operational & Financial Modeling",
-    description: `Evaluate costs, operational risks, conversion barriers, and resource dependencies for: ${goal}`,
+    description: `Evaluate costs, operational risks, conversion barriers, and resource dependencies.`,
     assignedBotId: analyst.id,
     assignedRole: "Strategic Quantitative Analyst",
     dependencies: [], // Parallel Branch 2 (Runs simultaneously with Branch 1)
@@ -245,7 +279,7 @@ export function decomposeArbitraryPrompt(
   });
 
   // Check if sensitive action is implied (e.g. sending emails, deleting, paying, contracting, deploying)
-  const isSensitive = lower.includes("send") || lower.includes("email") || lower.includes("pay") || lower.includes("contract") || lower.includes("deploy") || lower.includes("delete");
+  const isSensitive = /\b(send|dispatch|pay|contract|deploy|delete|terminate|refund)\b/i.test(lower);
 
   const approvalText = language === "hinglish"
     ? `System ne analysis complete kar li hai. Is deliverable ko external partners ya live system par execute karne ke liye kya aap approve karte hain?`

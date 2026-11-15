@@ -1,8 +1,8 @@
 // App storage: bots, rooms, and the chat transcript the UI shows. Mastra keeps
 // its own store (mastra.db) for each bot's model-facing thread history.
 import { createClient, type Client } from "@libsql/client";
-import { APP_DB_URL } from "./config";
-import type { Bot, ChatMessage, ConversationId, Room } from "@/lib/shared/types";
+import { APP_DB_URL } from "./config.ts";
+import type { Bot, ChatMessage, ConversationId, Room } from "../shared/types.ts";
 
 // Cached across hot reloads, together with the file it points at, so a
 // changed database path opens a fresh connection instead of reusing one
