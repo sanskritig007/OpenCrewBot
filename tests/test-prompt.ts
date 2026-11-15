@@ -4,6 +4,7 @@
 import { generateTaskPlan, detectLanguage, synthesizeFinalDeliverable } from "../src/lib/server/orchestrator/chief-of-staff.ts";
 import { TaskExecutionEngine } from "../src/lib/server/orchestrator/execution-engine.ts";
 import type { Bot, TaskNode } from "../src/lib/shared/types.ts";
+import { generateWithGemini } from "../src/lib/server/models/gemini-client.ts";
 
 const availableWorkforce: Bot[] = [
   {
@@ -136,16 +137,36 @@ async function main() {
     const startTime = Date.now();
     console.log(`   🚀 [STARTED] "${node.title}" by ${node.assignedRole}...`);
     
-    // Simulate real agent cognitive processing
-    await new Promise(r => setTimeout(r, 400));
-    
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`   ✨ [COMPLETED] "${node.title}" (took ${duration}s)`);
+    // Call Live Gemini Model for REAL Dynamic Intelligence
+    try {
+      const upstreamText = Object.entries(upstream)
+        .map(([k, v]) => `[Upstream Output from ${k}]:\n${v}`)
+        .join("\n\n");
 
-    if (language === "hinglish") {
-      return `Task "${node.title}" safaltapoorvak complete ho gaya hai. Findings aur research metrics record ho gaye hain.`;
+      const systemInstruction = `You are ${node.assignedRole} in the OpenCrewBot 2.0 Autonomous AI Workforce.
+Your specific task is: "${node.title}".
+Context / User Goal: "${userPrompt}".
+Preferred Language: ${language.toUpperCase()} (If Hinglish, use natural fluent Hinglish; if English, use crisp professional English).
+Requirements: Provide accurate, detailed, factual, and direct business/domain output. Include relevant bullet points, numbers, options, or comparison tables where applicable. Do not generate generic placeholders.`;
+
+      const promptPayload = upstreamText
+        ? `Upstream Team Inputs:\n${upstreamText}\n\nBased on the above, deliver your specific output for: "${node.title}".`
+        : `Execute your specific task: "${node.title}" for goal: "${userPrompt}".`;
+
+      const liveResponse = await generateWithGemini(promptPayload, {
+        systemInstruction,
+        temperature: 0.15,
+        topP: 0.85,
+      });
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`   ✨ [LIVE AI COMPLETED] "${node.title}" (took ${duration}s via Gemini API)`);
+      return liveResponse;
+    } catch (err: unknown) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`   ⚠️ [FALLBACK] "${node.title}" (took ${duration}s, reason: ${err instanceof Error ? err.message : String(err)})`);
+      return `### Output for "${node.title}"\n- Evaluated core operational parameters for: "${userPrompt}".`;
     }
-    return `Output verified for "${node.title}". Extracted key deliverables and metrics.`;
   };
 
   const executedPlan = await engine.runPlan(plan, executor, {

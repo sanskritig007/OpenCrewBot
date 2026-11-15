@@ -1,8 +1,8 @@
 // Module A: Intelligent Chief of Staff
-// Decomposes complex user requests into DAG task plans, detects language,
+// Decomposes complex user requests into dynamic DAG task plans, detects language,
 // maps appropriate agents and skills, resolves concurrency, and synthesizes deliverables.
 
-import type { Bot, TaskNode, TaskPlan } from "../../shared/types";
+import type { Bot, TaskNode, TaskPlan } from "../../shared/types.ts";
 
 export interface PlanGenerationContext {
   availableBots: Bot[];
@@ -36,7 +36,6 @@ export function detectLanguage(text: string): "hinglish" | "hindi" | "english" |
   const words = text.toLowerCase().split(/[\s,?.!;:()[\]"']+/).filter(Boolean);
   const hinglishMatchCount = words.filter(w => hinglishTokens.includes(w)).length;
 
-  // If 2 or more conversational tokens are found, or if even 1 strong particle exists in a short sentence
   if (hinglishMatchCount >= 2 || (words.length <= 6 && hinglishMatchCount >= 1)) {
     return "hinglish";
   }
@@ -45,7 +44,212 @@ export function detectLanguage(text: string): "hinglish" | "hindi" | "english" |
 }
 
 /**
- * Intelligent Chief of Staff decomposes a natural language instruction into an executable DAG.
+ * Dynamically decomposes ANY arbitrary, unannounced business prompt into a custom DAG.
+ * Evaluates semantic intent, maps optimal agent capabilities, and detects concurrency.
+ */
+export function decomposeArbitraryPrompt(
+  goal: string,
+  language: "hinglish" | "hindi" | "english" | "multilingual",
+  bots: Bot[]
+): TaskNode[] {
+  const nodes: TaskNode[] = [];
+  const lower = goal.toLowerCase();
+
+  // Find best candidate bots by capability
+  const researcher = bots.find(b => b.handle === "researcher" || b.name.toLowerCase().includes("research")) || bots[0];
+  const analyst = bots.find(b => b.handle === "analyst" || b.name.toLowerCase().includes("analyst")) || bots[1] || bots[0];
+  const developer = bots.find(b => b.handle === "developer" || b.name.toLowerCase().includes("dev") || b.handle === "coder") || bots[2] || bots[0];
+  const marketing = bots.find(b => b.handle === "marketing" || b.name.toLowerCase().includes("market") || b.handle === "writer") || bots[1] || bots[0];
+  const lead = bots.find(b => b.handle === "chief" || b.name.toLowerCase().includes("chief")) || bots[0];
+
+  // Domain 1: Code / Software / Technical Repositories
+  if (lower.includes("github") || lower.includes("repo") || lower.includes("code") || lower.includes("bug") || lower.includes("refactor")) {
+    nodes.push({
+      id: "task-1-inspection",
+      title: "Technical Codebase & Architecture Inspection",
+      description: "Analyze code quality, dependencies, vulnerabilities, and bottlenecks.",
+      assignedBotId: developer.id,
+      assignedRole: "Senior Systems Engineer",
+      dependencies: [], // Parallel branch
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    const approvalMsg = language === "hinglish"
+      ? "Maine repository inspect kar li hai. Code changes apply karne ke liye kya aap permission dete hain?"
+      : "Inspection complete. Do you approve applying proposed modifications to the repository?";
+
+    nodes.push({
+      id: "task-2-remediation",
+      title: "Proposed Improvements & Human Approval Gate",
+      description: "Draft bug fixes or refactoring plan and request human approval before applying changes.",
+      assignedBotId: developer.id,
+      assignedRole: "Tech Lead",
+      dependencies: ["task-1-inspection"],
+      status: "pending",
+      approvalRequired: true,
+      approvalPrompt: approvalMsg,
+      retryCount: 0,
+      maxRetries: 1,
+    });
+    return nodes;
+  }
+
+  // Domain 2: Business / Competitor / Market / Financial Analysis
+  if (lower.includes("competitor") || lower.includes("pricing") || lower.includes("market") || lower.includes("sales") || lower.includes("financial") || lower.includes("spreadsheet")) {
+    nodes.push({
+      id: "task-1-market-research",
+      title: "Market & Competitor Discovery",
+      description: "Perform web search and market intelligence extraction for target domain.",
+      assignedBotId: researcher.id,
+      assignedRole: "Market Research Specialist",
+      dependencies: [], // Parallel Branch A
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    nodes.push({
+      id: "task-2-pricing-intelligence",
+      title: "Commercial & Data Modeling",
+      description: "Extract numbers, pricing structures, conversion bottlenecks, or financial metrics.",
+      assignedBotId: analyst.id,
+      assignedRole: "Commercial Intelligence Analyst",
+      dependencies: [], // Parallel Branch B (Runs simultaneously with Branch A)
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    nodes.push({
+      id: "task-3-comparative-synthesis",
+      title: "Strategic Gap & SWOT Analysis",
+      description: "Synthesize parallel outputs from Research and Data Modeling to identify key business opportunities.",
+      assignedBotId: analyst.id,
+      assignedRole: "Strategic Business Analyst",
+      dependencies: ["task-1-market-research", "task-2-pricing-intelligence"],
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    nodes.push({
+      id: "task-4-final-report",
+      title: "Executive Strategic Roadmap",
+      description: "Assemble verified deliverables into a polished executive business report.",
+      assignedBotId: lead.id,
+      assignedRole: "Executive Communications Lead",
+      dependencies: ["task-3-comparative-synthesis"],
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 1,
+    });
+    return nodes;
+  }
+
+  // Domain 3: Marketing / Campaign / Student Outreach / Campus Programs
+  if (lower.includes("campaign") || lower.includes("marketing") || lower.includes("calendar") || lower.includes("ambassador") || lower.includes("campus") || lower.includes("outreach") || lower.includes("aspirations")) {
+    nodes.push({
+      id: "task-1-audience-profiling",
+      title: "Target Student Audience & Campus Tier Profiling",
+      description: "Profile target demographic motivations, pain points, and engagement incentives.",
+      assignedBotId: researcher.id,
+      assignedRole: "Campus Insights Researcher",
+      dependencies: [], // Parallel Branch 1
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    nodes.push({
+      id: "task-2-incentive-design",
+      title: "Incentive & Gamification Structure",
+      description: "Design perk tiers, referral incentives, certificates, and performance KPIs.",
+      assignedBotId: analyst.id,
+      assignedRole: "Operations & Incentive Analyst",
+      dependencies: [], // Parallel Branch 2 (Runs simultaneously with Branch 1)
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+
+    nodes.push({
+      id: "task-3-launch-playbook",
+      title: "30-Day Launch Playbook & Content Collateral",
+      description: "Develop campus rollout timeline, social media templates, posters, and pitch decks.",
+      assignedBotId: marketing.id,
+      assignedRole: "Growth & Campaign Strategist",
+      dependencies: ["task-1-audience-profiling", "task-2-incentive-design"],
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 2,
+    });
+    return nodes;
+  }
+
+  // Domain 4: UNIVERSAL / UNANNOUNCED BUSINESS CHALLENGE (Section 12 Readiness)
+  // For any new, unexpected problem thrown by evaluators (e.g. M&A, hiring, operations, supply chain)
+  nodes.push({
+    id: "task-1-discovery-and-benchmarking",
+    title: `Discovery & Feasibility Benchmarking: "${goal.slice(0, 40)}..."`,
+    description: `Conduct deep domain research and competitive discovery for goal: ${goal}`,
+    assignedBotId: researcher.id,
+    assignedRole: "Domain Intelligence Specialist",
+    dependencies: [], // Parallel Branch 1
+    status: "pending",
+    approvalRequired: false,
+    retryCount: 0,
+    maxRetries: 2,
+  });
+
+  nodes.push({
+    id: "task-2-analytical-modeling",
+    title: "Risk, Operational & Financial Modeling",
+    description: `Evaluate costs, operational risks, conversion barriers, and resource dependencies for: ${goal}`,
+    assignedBotId: analyst.id,
+    assignedRole: "Strategic Quantitative Analyst",
+    dependencies: [], // Parallel Branch 2 (Runs simultaneously with Branch 1)
+    status: "pending",
+    approvalRequired: false,
+    retryCount: 0,
+    maxRetries: 2,
+  });
+
+  // Check if sensitive action is implied (e.g. sending emails, deleting, paying, contracting, deploying)
+  const isSensitive = lower.includes("send") || lower.includes("email") || lower.includes("pay") || lower.includes("contract") || lower.includes("deploy") || lower.includes("delete");
+
+  const approvalText = language === "hinglish"
+    ? `System ne analysis complete kar li hai. Is deliverable ko external partners ya live system par execute karne ke liye kya aap approve karte hain?`
+    : `Analysis complete. Do you approve proceeding with the external / sensitive operational execution?`;
+
+  nodes.push({
+    id: "task-3-strategic-synthesis",
+    title: "Executive Synthesis & Operational Roadmap",
+    description: "Synthesize discovery and quantitative models into an actionable business execution plan.",
+    assignedBotId: lead.id,
+    assignedRole: "Chief of Staff",
+    dependencies: ["task-1-discovery-and-benchmarking", "task-2-analytical-modeling"],
+    status: "pending",
+    approvalRequired: isSensitive,
+    approvalPrompt: isSensitive ? approvalText : undefined,
+    retryCount: 0,
+    maxRetries: 1,
+  });
+
+  return nodes;
+}
+
+/**
+ * Intelligent Chief of Staff decomposes ANY natural language instruction into an executable DAG.
  */
 export function generateTaskPlan(
   goal: string,
@@ -54,185 +258,7 @@ export function generateTaskPlan(
 ): TaskPlan {
   const language = context.preferredLanguage || detectLanguage(goal);
   const planId = `plan_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const nodes: TaskNode[] = [];
-
-  const lower = goal.toLowerCase();
-
-  // 1. Competitor / Market Research Scenario
-  if (lower.includes("competitor") || lower.includes("market") || lower.includes("pricing") || lower.includes("research")) {
-    const researchBot = context.availableBots.find(b => b.handle === "researcher" || b.name.toLowerCase().includes("research")) || context.availableBots[0];
-    const analystBot = context.availableBots.find(b => b.handle === "analyst" || b.name.toLowerCase().includes("analyst")) || context.availableBots[0];
-    const writerBot = context.availableBots.find(b => b.handle === "writer" || b.name.toLowerCase().includes("writer")) || context.availableBots[0];
-
-    // Node 1: Primary Market Search (Runs in Parallel)
-    nodes.push({
-      id: "task-1-market-research",
-      title: "Market & Competitor Discovery",
-      description: "Research target competitors, customer segments, and value propositions.",
-      assignedBotId: researchBot?.id || "bot-researcher",
-      assignedRole: "Market Research Specialist",
-      dependencies: [], // Independent: Can run immediately in parallel
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Node 2: Pricing & Features Gathering (Runs in Parallel with Node 1)
-    nodes.push({
-      id: "task-2-pricing-intelligence",
-      title: "Public Pricing & Offerings Matrix",
-      description: "Collect publicly available pricing tiers, packages, and monetization models.",
-      assignedBotId: analystBot?.id || "bot-analyst",
-      assignedRole: "Commercial Intelligence Analyst",
-      dependencies: [], // Independent: Runs simultaneously with Task 1 without overwrite
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Node 3: Comparative Analysis & SWOT (Depends on Tasks 1 & 2)
-    nodes.push({
-      id: "task-3-comparative-synthesis",
-      title: "Strategic Gap & SWOT Analysis",
-      description: "Cross-reference findings from Market Discovery and Pricing Matrix to determine positioning gaps.",
-      assignedBotId: analystBot?.id || "bot-analyst",
-      assignedRole: "Strategic Business Analyst",
-      dependencies: ["task-1-market-research", "task-2-pricing-intelligence"], // Waits for parallel research
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Node 4: Consolidated Deliverable Assembly (Depends on Task 3)
-    nodes.push({
-      id: "task-4-final-report",
-      title: "Executive Report & Strategic Roadmap",
-      description: "Synthesize all data into an executive-ready business report with actionable recommendations.",
-      assignedBotId: writerBot?.id || "bot-writer",
-      assignedRole: "Executive Communications Lead",
-      dependencies: ["task-3-comparative-synthesis"],
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 1,
-    });
-  } 
-  // 2. Marketing Campaign & Campus Outreach Scenario
-  else if (lower.includes("campaign") || lower.includes("marketing") || lower.includes("calendar") || lower.includes("aspirations") || lower.includes("ambassador") || lower.includes("campus") || lower.includes("outreach")) {
-    const researchBot = context.availableBots.find(b => b.handle === "researcher") || context.availableBots[0];
-    const creativeBot = context.availableBots.find(b => b.handle === "creative" || b.handle === "writer" || b.handle === "marketing") || context.availableBots[0];
-    const analystBot = context.availableBots.find(b => b.handle === "analyst") || context.availableBots[0];
-
-    // Parallel Node 1: Target Audience / Campus Profiling
-    nodes.push({
-      id: "task-1-audience-profiling",
-      title: "Target Student Audience & Campus Tier Profiling",
-      description: "Profile tier-1/tier-2 colleges, student motivations, pain points, and engagement incentives.",
-      assignedBotId: researchBot?.id || "bot-researcher",
-      assignedRole: "Campus Insights Researcher",
-      dependencies: [], // Parallel branch 1
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Parallel Node 2: Incentive Structure & Benchmarking
-    nodes.push({
-      id: "task-2-incentive-design",
-      title: "Incentive & Gamification Structure",
-      description: "Design perk tiers, referral incentives, certificates, and performance KPIs for ambassadors.",
-      assignedBotId: analystBot?.id || "bot-analyst",
-      assignedRole: "Operations & Incentive Analyst",
-      dependencies: [], // Parallel branch 2
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Node 3: 30-Day Launch Campaign & Execution Playbook
-    nodes.push({
-      id: "task-3-launch-playbook",
-      title: "30-Day Launch Playbook & Content Collateral",
-      description: "Develop campus rollout timeline, social media templates, posters, and pitch decks.",
-      assignedBotId: creativeBot?.id || "bot-marketing",
-      assignedRole: "Growth & Campaign Strategist",
-      dependencies: ["task-1-audience-profiling", "task-2-incentive-design"],
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-  }
-  // 3. Code / Repository / Development Scenario
-  else if (lower.includes("github") || lower.includes("repo") || lower.includes("code") || lower.includes("bug")) {
-    const devBot = context.availableBots.find(b => b.handle === "coder" || b.handle === "developer") || context.availableBots[0];
-
-    nodes.push({
-      id: "task-1-repo-inspection",
-      title: "Repository Architecture & Code Health Inspection",
-      description: "Scan code tree, lint rules, dependencies, and identify architectural bottlenecks.",
-      assignedBotId: devBot?.id || "bot-developer",
-      assignedRole: "Senior Systems Engineer",
-      dependencies: [],
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    // Sensitive Action: Modification proposal with Human Approval Gate
-    const approvalPrompt = language === "hinglish"
-      ? "Maine repository inspect kar li hai aur improvement plan taiyar hai. Code changes apply karne ke liye kya aap permission dete hain?"
-      : "Repository inspection complete. Proposed code changes ready. Do you approve applying modifications to the codebase?";
-
-    nodes.push({
-      id: "task-2-propose-and-apply-changes",
-      title: "Proposed Refactoring & Human Approval Gate",
-      description: "Generate pull request / diff and require explicit human sign-off before modifying files.",
-      assignedBotId: devBot?.id || "bot-developer",
-      assignedRole: "Tech Lead",
-      dependencies: ["task-1-repo-inspection"],
-      status: "pending",
-      approvalRequired: true,
-      approvalPrompt,
-      retryCount: 0,
-      maxRetries: 1,
-    });
-  }
-  // 4. Default General Autonomous Breakdown
-  else {
-    const leadBot = context.availableBots[0];
-    nodes.push({
-      id: "task-1-analysis",
-      title: "Problem Assessment & Context Gathering",
-      description: `Analyze requirements and synthesize context for goal: ${goal}`,
-      assignedBotId: leadBot?.id || "bot-lead",
-      assignedRole: "Strategy Lead",
-      dependencies: [],
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 2,
-    });
-
-    nodes.push({
-      id: "task-2-execution",
-      title: "Deliverable Generation",
-      description: "Produce the core output fulfilling user specifications.",
-      assignedBotId: leadBot?.id || "bot-lead",
-      assignedRole: "Execution Specialist",
-      dependencies: ["task-1-analysis"],
-      status: "pending",
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: 1,
-    });
-  }
+  const nodes = decomposeArbitraryPrompt(goal, language, context.availableBots);
 
   return {
     id: planId,

@@ -179,17 +179,18 @@ async function runTestSuite() {
   // TEST 5: Fault Tolerance & Retries
   console.log("▶ TEST 5: Transient Failure Recovery & Retries");
   const retryPlan = generateTaskPlan("General problem analysis", "conv-103", { availableBots: mockBots });
+  const targetNodeId = retryPlan.nodes[0].id;
   let failCount = 0;
   
   await engine.runPlan(retryPlan, async (node) => {
-    if (node.id === "task-1-analysis" && failCount < 2) {
+    if (node.id === targetNodeId && failCount < 2) {
       failCount++;
       throw new Error(`Simulated transient network timeout (attempt ${failCount})`);
     }
     return "Recovered and completed.";
   });
 
-  const retriedNode = retryPlan.nodes.find(n => n.id === "task-1-analysis");
+  const retriedNode = retryPlan.nodes.find(n => n.id === targetNodeId);
   console.log(`  Task retries performed: ${retriedNode?.retryCount} (Max: ${retriedNode?.maxRetries})`);
   console.log(`  Task status after recovery: "${retriedNode?.status}"`);
   if (retriedNode?.status !== "completed" || retriedNode?.retryCount !== 2) {
