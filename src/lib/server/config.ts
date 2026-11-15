@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
-import type { AppStatus } from "@/lib/shared/types";
+import type { AppStatus } from "../shared/types.ts";
 
 // The data folder is chosen at runtime, so keep the bundler from tracing it.
 export const DATA_DIR = resolve(/*turbopackIgnore: true*/ process.env.OPENCREWBOT_DATA_DIR || "./data");
