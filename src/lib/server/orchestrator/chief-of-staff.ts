@@ -62,6 +62,26 @@ export function decomposeArbitraryPrompt(
   const marketing = bots.find(b => b.handle === "marketing" || b.name.toLowerCase().includes("market") || b.handle === "writer") || bots[1] || bots[0];
   const lead = bots.find(b => b.handle === "chief" || b.name.toLowerCase().includes("chief")) || bots[0];
 
+  // RULE 1: If the goal is a simple direct query (short word count or factual), use ONE single agent to save 100% redundant tokens!
+  const words = goal.trim().split(/\s+/);
+  const isSimpleQuery = words.length <= 5 && !lower.includes("compare") && !lower.includes("campaign") && !lower.includes("analysis") && !lower.includes("plan");
+
+  if (isSimpleQuery) {
+    nodes.push({
+      id: "task-1-direct-response",
+      title: "Direct Factual Resolution",
+      description: `Provide a direct, high-precision answer for: "${goal}"`,
+      assignedBotId: lead.id,
+      assignedRole: "Direct Intelligence Specialist",
+      dependencies: [],
+      status: "pending",
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: 1,
+    });
+    return nodes;
+  }
+
   // Domain 1: Code / Software / Technical Repositories
   if (lower.includes("github") || lower.includes("repo") || lower.includes("code") || lower.includes("bug") || lower.includes("refactor")) {
     nodes.push({

@@ -4,7 +4,7 @@
 import { generateTaskPlan, detectLanguage, synthesizeFinalDeliverable } from "../src/lib/server/orchestrator/chief-of-staff.ts";
 import { TaskExecutionEngine } from "../src/lib/server/orchestrator/execution-engine.ts";
 import type { Bot, TaskNode } from "../src/lib/shared/types.ts";
-import { generateWithGemini } from "../src/lib/server/models/gemini-client.ts";
+import { routeLLMRequest, tokenStats } from "../src/lib/server/models/model-router.ts";
 
 const availableWorkforce: Bot[] = [
   {
@@ -153,15 +153,32 @@ Requirements: Provide accurate, detailed, factual, and direct business/domain ou
         ? `Upstream Team Inputs:\n${upstreamText}\n\nBased on the above, deliver your specific output for: "${node.title}".`
         : `Execute your specific task: "${node.title}" for goal: "${userPrompt}".`;
 
-      const liveResponse = await generateWithGemini(promptPayload, {
+      // Determine task category for optimal load balancing
+      let taskCategory: "research" | "analysis" | "synthesis" | "coding" = "synthesis";
+      if (node.id.includes("research") || node.id.includes("discovery")) {
+        taskCategory = "research";
+      } else if (node.id.includes("model") || node.id.includes("analysis") || node.id.includes("pricing")) {
+        taskCategory = "analysis";
+      } else if (node.id.includes("code") || node.id.includes("repo") || node.id.includes("dev")) {
+        taskCategory = "coding";
+      }
+
+      const { output: liveResponse, providerUsed } = await routeLLMRequest(
+        promptPayload,
         systemInstruction,
-        temperature: 0.15,
-        topP: 0.85,
-      });
+        {
+          taskCategory,
+          temperature: 0.15,
+          maxTokens: 1024,
+        }
+      );
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`   ✨ [LIVE AI COMPLETED] "${node.title}" (took ${duration}s via Gemini API)`);
-      return liveResponse;
+      console.log(`   ✨ [LIVE AI COMPLETED] "${node.title}" (took ${duration}s via ${providerUsed.toUpperCase()})`);
+      
+      // Clear Attribution badge so the reader knows who generated what
+      const attributionBadge = `> 🏷️ **Lead Agent:** ${node.assignedRole} (${node.assignedBotId}) | **Intelligence Engine:** ${providerUsed.toUpperCase()} | **Latency:** ${duration}s\n\n`;
+      return `${attributionBadge}${liveResponse}`;
     } catch (err: unknown) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(`   ⚠️ [FALLBACK] "${node.title}" (took ${duration}s, reason: ${err instanceof Error ? err.message : String(err)})`);
@@ -188,7 +205,12 @@ Requirements: Provide accurate, detailed, factual, and direct business/domain ou
   console.log("📄 FINAL CONSOLIDATED BUSINESS DELIVERABLE ASSEMBLED BY CHIEF OF STAFF:");
   console.log("================================================================================\n");
   console.log(executedPlan.finalDeliverable);
-  console.log("\n================================================================================\n");
+  console.log("\n================================================================================");
+  console.log("📊 MULTI-MODEL TOKEN OPTIMIZATION & LOAD-BALANCING METRICS:");
+  console.log(`   - Gemini 2.5 Flash Calls: ${tokenStats.geminiCalls}`);
+  console.log(`   - Groq Llama 3.3 Calls:   ${tokenStats.groqCalls}`);
+  console.log(`   - Cache Hits:             ${tokenStats.cachedHits} (Saved ~${tokenStats.estimatedTokensSaved} tokens)`);
+  console.log("================================================================================\n");
 }
 
 main().catch(console.error);

@@ -79,14 +79,15 @@ export async function generateWithGemini(
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     // If gemini-2.5-flash model name fails, fallback to gemini-1.5-flash
-    if (model !== "gemini-1.5-flash") {
-      return generateWithGemini(prompt, { ...options, model: "gemini-1.5-flash" });
+    if (model !== "gemini-flash-latest") {
+      return generateWithGemini(prompt, { ...options, model: "gemini-flash-latest" });
     }
     throw new Error(`Gemini API error (${response.status}): ${JSON.stringify(errorData)}`);
   }
