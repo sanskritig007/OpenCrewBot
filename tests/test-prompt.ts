@@ -14,7 +14,7 @@ const availableWorkforce: Bot[] = [
     title: "Executive Orchestrator",
     description: "Orchestrates workforce, breaks down goals, coordinates deliverables",
     instructions: "You are the Chief of Staff.",
-    emoji: "👑",
+    emoji: "",
     color: "#6366f1",
     model: "claude-3.7-sonnet",
     tools: { webSearch: true, memory: true, codeMode: true, browser: false, askUser: true },
@@ -30,7 +30,7 @@ const availableWorkforce: Bot[] = [
     title: "Intelligence & Insights Lead",
     description: "Deep market, competitor, and audience discovery",
     instructions: "Gather factual intelligence.",
-    emoji: "🔍",
+    emoji: "",
     color: "#3b82f6",
     model: "perplexity-sonar",
     tools: { webSearch: true, memory: true, codeMode: false, browser: true, askUser: false },
@@ -46,7 +46,7 @@ const availableWorkforce: Bot[] = [
     title: "Commercial & Data Analyst",
     description: "Spreadsheets, financial models, pricing comparisons",
     instructions: "Analyze data rigorously.",
-    emoji: "📊",
+    emoji: "",
     color: "#10b981",
     model: "gemini-2.5-pro",
     tools: { webSearch: false, memory: true, codeMode: true, browser: false, askUser: false },
@@ -62,7 +62,7 @@ const availableWorkforce: Bot[] = [
     title: "Growth & Campaign Lead",
     description: "Audience targeting, campaigns, social strategy, campus outreach",
     instructions: "Design high-converting campaigns.",
-    emoji: "🎯",
+    emoji: "",
     color: "#ec4899",
     model: "gpt-4o",
     tools: { webSearch: true, memory: true, codeMode: false, browser: false, askUser: false },
@@ -78,7 +78,7 @@ const availableWorkforce: Bot[] = [
     title: "Systems & Code Specialist",
     description: "GitHub inspection, bug fixing, automated refactoring",
     instructions: "Write production code.",
-    emoji: "💻",
+    emoji: "",
     color: "#f59e0b",
     model: "codex-deepseek-r1",
     tools: { webSearch: false, memory: true, codeMode: true, browser: false, askUser: true },
@@ -93,30 +93,30 @@ async function main() {
   const userPrompt = process.argv[2] || "MeetUniversity ke competitors identify karo aur pricing comparison report banao";
 
   console.log("\n================================================================================");
-  console.log("🤖 OPENCREWBOT 2.0 — AUTONOMOUS AI WORKFORCE INTERACTIVE CLI");
+  console.log("OPENCREWBOT 2.0 — AUTONOMOUS AI WORKFORCE INTERACTIVE CLI");
   console.log("================================================================================");
-  console.log(`\n📥 USER INPUT PROMPT:\n"${userPrompt}"\n`);
+  console.log(`\nUSER INPUT PROMPT:\n"${userPrompt}"\n`);
 
   // 1. Language Detection
   const language = detectLanguage(userPrompt);
-  console.log(`🌐 DETECTED LANGUAGE STYLE: [${language.toUpperCase()}]`);
+  console.log(`DETECTED LANGUAGE STYLE: [${language.toUpperCase()}]`);
 
   // 2. Chief of Staff DAG Decomposition
-  console.log("\n🧠 CHIEF OF STAFF: Analyzing prompt and synthesizing DAG Task Plan...");
+  console.log("\nCHIEF OF STAFF: Analyzing prompt and synthesizing DAG Task Plan...");
   const plan = generateTaskPlan(userPrompt, `conv_${Date.now()}`, {
     availableBots: availableWorkforce,
     preferredLanguage: language,
   });
 
-  console.log(`📋 Plan ID: ${plan.id}`);
-  console.log(`📌 Total Planned Sub-Tasks: ${plan.nodes.length}\n`);
+  console.log(`Plan ID: ${plan.id}`);
+  console.log(`Total Planned Sub-Tasks: ${plan.nodes.length}\n`);
 
   console.log("┌─────────────────────────────────────────────────────────────────────────────┐");
   console.log("│ WORKFORCE TASK ALLOCATION & CONCURRENCY GRAPH (DAG)                         │");
   console.log("├─────────────────────────────────────────────────────────────────────────────┤");
   plan.nodes.forEach((node, idx) => {
-    const isParallel = node.dependencies.length === 0 ? "⚡ [PARALLEL READY]" : `⏳ [WAITS FOR: ${node.dependencies.join(", ")}]`;
-    const approvalBadge = node.approvalRequired ? "🔒 [HUMAN APPROVAL REQUIRED]" : "✅ [AUTO]";
+    const isParallel = node.dependencies.length === 0 ? "[PARALLEL READY]" : `[WAITS FOR: ${node.dependencies.join(", ")}]`;
+    const approvalBadge = node.approvalRequired ? "[HUMAN APPROVAL REQUIRED]" : "[AUTO]";
     console.log(`│ ${idx + 1}. Node: ${node.id}`);
     console.log(`│    Title:        ${node.title}`);
     console.log(`│    Assigned:     ${node.assignedRole} (${node.assignedBotId})`);
@@ -130,12 +130,12 @@ async function main() {
   console.log("└─────────────────────────────────────────────────────────────────────────────┘\n");
 
   // 3. Execution Engine Simulation
-  console.log("⚡ STARTING WORKFORCE EXECUTION ENGINE (True Parallel Dispatch)...");
+  console.log("STARTING WORKFORCE EXECUTION ENGINE (True Parallel Dispatch)...");
   const engine = new TaskExecutionEngine();
 
   const executor = async (node: TaskNode, upstream: Record<string, string>): Promise<string> => {
     const startTime = Date.now();
-    console.log(`   🚀 [STARTED] "${node.title}" by ${node.assignedRole}...`);
+    console.log(`   [STARTED] "${node.title}" by ${node.assignedRole}...`);
     
     // Call Live Gemini Model for REAL Dynamic Intelligence
     try {
@@ -174,23 +174,23 @@ Requirements: Provide accurate, detailed, factual, and direct business/domain ou
       );
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`   ✨ [LIVE AI COMPLETED] "${node.title}" (took ${duration}s via ${providerUsed.toUpperCase()})`);
+      console.log(`   [LIVE AI COMPLETED] "${node.title}" (took ${duration}s via ${providerUsed.toUpperCase()})`);
       
-      // Clear Attribution badge so the reader knows who generated what
-      const attributionBadge = `> 🏷️ **Lead Agent:** ${node.assignedRole} (${node.assignedBotId}) | **Intelligence Engine:** ${providerUsed.toUpperCase()} | **Latency:** ${duration}s\n\n`;
+      // Clean Attribution badge without emojis
+      const attributionBadge = `> **Lead Agent:** ${node.assignedRole} (${node.assignedBotId}) | **Intelligence Engine:** ${providerUsed.toUpperCase()} | **Latency:** ${duration}s\n\n`;
       return `${attributionBadge}${liveResponse}`;
     } catch (err: unknown) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`   ⚠️ [FALLBACK] "${node.title}" (took ${duration}s, reason: ${err instanceof Error ? err.message : String(err)})`);
+      console.log(`   [FALLBACK] "${node.title}" (took ${duration}s, reason: ${err instanceof Error ? err.message : String(err)})`);
       return `### Output for "${node.title}"\n- Evaluated core operational parameters for: "${userPrompt}".`;
     }
   };
 
   const executedPlan = await engine.runPlan(plan, executor, {
     onNodeAwaitingApproval: (node) => {
-      console.log(`\n   🛑 [APPROVAL GATE TRIGGERED] Node: ${node.id}`);
-      console.log(`   💬 System asks Human Operator: "${node.approvalPrompt}"`);
-      console.log(`   👉 Automatically resolving with operator approval for CLI demo...\n`);
+      console.log(`\n   [APPROVAL GATE TRIGGERED] Node: ${node.id}`);
+      console.log(`   System asks Human Operator: "${node.approvalPrompt}"`);
+      console.log(`   Automatically resolving with operator approval for CLI demo...\n`);
       engine.resolveApproval(plan.id, node.id, true);
     }
   });

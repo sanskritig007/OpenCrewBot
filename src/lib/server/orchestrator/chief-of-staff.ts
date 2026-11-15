@@ -333,11 +333,11 @@ export function synthesizeFinalDeliverable(plan: TaskPlan): string {
   const failedNodes = plan.nodes.filter(n => n.status === "failed");
 
   const header = plan.detectedLanguage === "hinglish"
-    ? `# 📊 Executive Business Deliverable (OpenCrewBot 2.0)\n**Goal:** ${plan.goal}\n**Status:** ${failedNodes.length === 0 ? "Safaltapoorvak Pura Hua (Completed)" : "Completed with partial warnings"}\n\n`
-    : `# 📊 Executive Business Deliverable (OpenCrewBot 2.0)\n**Goal:** ${plan.goal}\n**Status:** ${failedNodes.length === 0 ? "Successfully Completed" : "Completed with partial warnings"}\n\n`;
+    ? `# Executive Business Deliverable (OpenCrewBot 2.0)\n**Goal:** ${plan.goal}\n**Status:** ${failedNodes.length === 0 ? "Safaltapoorvak Pura Hua (Completed)" : "Completed with partial warnings"}\n\n`
+    : `# Executive Business Deliverable (OpenCrewBot 2.0)\n**Goal:** ${plan.goal}\n**Status:** ${failedNodes.length === 0 ? "Successfully Completed" : "Completed with partial warnings"}\n\n`;
 
   const taskSummaries = completedNodes
-    .map(n => `### ✅ ${n.title} (${n.assignedRole})\n${n.output || "Completed successfully with verified outputs."}`)
+    .map(n => `### [Completed] ${n.title} (${n.assignedRole})\n${n.output || "Completed successfully with verified outputs."}`)
     .join("\n\n---\n\n");
 
   const footer = `\n\n---\n*Delivered autonomously by OpenCrewBot Workforce Engine on ${new Date().toLocaleString()}*`;
