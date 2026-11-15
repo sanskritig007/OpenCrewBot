@@ -1,6 +1,6 @@
 // Types shared by the server and the browser. Everything here is plain JSON.
 
-export type ApprovalMode = "ask" | "full";
+export type ApprovalMode = "ask" | "controlled" | "full";
 
 export interface BotTools {
   /** Tavily search, extract and crawl. */
@@ -171,3 +171,69 @@ export interface ConnectionOption {
   kind: "composio" | "mcp";
   logo?: string;
 }
+
+// ==========================================
+// OpenCrewBot 2.0 Autonomous Workforce Types
+// ==========================================
+
+export type TaskStatus =
+  | "pending"
+  | "running"
+  | "awaiting-approval"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface TaskNode {
+  id: string;
+  title: string;
+  description: string;
+  assignedBotId: string;
+  assignedRole: string;
+  preferredModel?: string;
+  dependencies: string[]; // IDs of tasks that must finish before this task starts
+  status: TaskStatus;
+  approvalRequired: boolean;
+  approvalStatus?: "pending" | "approved" | "rejected";
+  approvalPrompt?: string; // Multilingual prompt explaining the sensitive action
+  inputs?: Record<string, unknown>;
+  output?: string;
+  error?: string;
+  retryCount: number;
+  maxRetries: number;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface TaskPlan {
+  id: string;
+  conversationId: ConversationId;
+  goal: string;
+  detectedLanguage: "hinglish" | "hindi" | "english" | "multilingual";
+  status: "planning" | "executing" | "paused" | "completed" | "failed";
+  nodes: TaskNode[];
+  finalDeliverable?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface MemoryProvenance {
+  id: string;
+  scope: "individual" | "room" | "project";
+  targetId: string; // botId, roomId, or projectId
+  key?: string;
+  content: string;
+  reason: string; // "Why" was it remembered
+  source: "user_direct" | "agent_inference" | "manual_file_edit";
+  timestamp: string; // "When"
+}
+
+export interface SkillDefinition {
+  id: string;
+  name: string;
+  category: "research" | "analysis" | "engineering" | "creative" | "marketing";
+  description: string;
+  systemPromptAddon: string;
+  requiredTools: string[];
+}
+
