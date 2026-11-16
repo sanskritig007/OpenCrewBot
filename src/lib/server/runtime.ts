@@ -514,29 +514,75 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
           .join(" ") +
         " " +
         content;
+
+      // Dynamic Extraction of Recipient Name & Subject Context from user prompt
+      const subjectMatch = content.match(/(?:for|about|subject|regarding|ke liye|baare mein)\s+([^,.\n]+)/i);
+      const dynamicSubject = subjectMatch
+        ? subjectMatch[1].trim()
+        : /sop/i.test(allRecentText)
+        ? "Official Advisory: Statement of Purpose Review"
+        : "Official Advisory & Document Verification";
+
+      const extractedName = recipientEmail
+        .split("@")[0]
+        .replace(/[._-]/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
       const studentName = /aditya/i.test(allRecentText)
         ? "Aditya Kumar"
+        : extractedName.length > 2 && !/student|info|contact|admin/i.test(extractedName)
+        ? extractedName
         : /student/i.test(allRecentText)
         ? "Enrolled Student"
-        : "Admissions Candidate";
+        : "Client / Candidate";
+
+      const orgName = /meetuniversity/i.test(allRecentText)
+        ? "MeetUniversity International Admissions"
+        : "Executive Advisory Operations";
 
       const result = await sendStudentNotification({
         to: recipientEmail,
         studentName,
-        universityName: "MeetUniversity International Admissions",
-        subject: "Official Admissions Advisory & Document Review",
-        bodyMarkdown:
-          "Your study abroad profile and application documentation have been reviewed. Please find the verified guidance and next steps.",
+        universityName: orgName,
+        subject: dynamicSubject,
+        bodyMarkdown: `The requested advisory regarding "${dynamicSubject}" has been verified and processed by the operations team. Please find the verified guidance and next steps.`,
         urgency: "high",
       });
 
       let replyText = "";
       if (lang === "hinglish" || lang === "hindi") {
-        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nEmail verified recipient ko successfully bhej diya gaya hai!`;
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Client/Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nEmail verified recipient ko successfully bhej diya gaya hai!`;
       } else {
-        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nThe communication has been dispatched with verified delivery.`;
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Client/Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nThe communication has been dispatched with verified delivery.`;
       }
       folder.message.parts.push({ kind: "text", text: replyText });
+      await folder.finish("done");
+      return folder.message;
+    }
+
+    // Dynamic Agent Creation (Module B Natural Language Chat Trigger)
+    const agentCreateMatch = content.match(
+      /\b(?:create agent|naya agent banao|add agent|new agent|generate agent|make agent)\b[:\s]*(.*)/i
+    );
+    if (agentCreateMatch && agentCreateMatch[1]?.trim().length > 3) {
+      const agentPrompt = agentCreateMatch[1].trim();
+      const { createAgentFromPrompt } = await import("./factory/agent-factory");
+      const { bot: createdBot, reasoning } = await createAgentFromPrompt(agentPrompt);
+      const reply =
+        lang === "english"
+          ? `✨ **New Autonomous Agent Created Successfully**\n- **Name:** ${createdBot.emoji} **${createdBot.name}** (\`@${createdBot.handle}\`)\n- **Title:** ${createdBot.title}\n- **Model:** \`${createdBot.model}\` | **Approval Policy:** \`${createdBot.approval.toUpperCase()}\`\n- **Capabilities:** ${Object.entries(
+              createdBot.tools
+            )
+              .filter(([, v]) => v)
+              .map(([k]) => k)
+              .join(", ")}\n- **Workspace Memory:** Initialized at \`data/workspaces/${createdBot.id}/MEMORY.md\`\n\n*${reasoning}*\n\nYou can now converse directly with @${createdBot.handle} in the sidebar!`
+          : `✨ **Naya Autonomous Agent Successfully Create Ho Gaya**\n- **Name:** ${createdBot.emoji} **${createdBot.name}** (\`@${createdBot.handle}\`)\n- **Title:** ${createdBot.title}\n- **Model:** \`${createdBot.model}\` | **Policy:** \`${createdBot.approval.toUpperCase()}\`\n- **Tools:** ${Object.entries(
+              createdBot.tools
+            )
+              .filter(([, v]) => v)
+              .map(([k]) => k)
+              .join(", ")}\n- **Memory Workspace:** \`data/workspaces/${createdBot.id}/MEMORY.md\` par save ho gaya hai.\n\n*${reasoning}*\n\nAap ab sidebar mein @${createdBot.handle} ke sath seedha chat kar sakte hain!`;
+      folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
       return folder.message;
     }
