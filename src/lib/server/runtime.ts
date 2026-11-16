@@ -9,7 +9,7 @@ import { LibSQLStore } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
 import { randomUUID } from "node:crypto";
 import type { Bot, ChatMessage, ConversationId, Part, RouteNote } from "@/lib/shared/types";
-import { MASTRA_DB_URL, OWNER_ID, isMock } from "./config";
+import { MASTRA_DB_URL, OWNER_ID, isMock, keys } from "./config";
 import { conversationGeneration, getBot, saveMessage } from "./db";
 import { publish } from "./bus";
 import { costUsd, findModel } from "./models";
@@ -102,7 +102,7 @@ async function buildRuntime(bot: Bot): Promise<BotRuntime> {
     id: `bot-${bot.id}`,
     name: bot.name,
     instructions: () => systemPrompt(holder.bot, capabilities, builtIn.instructions),
-    model: isMock() ? createMockModel(bot.name) : () => `nebius/${holder.bot.model}`,
+    model: keys.nebius() ? () => `nebius/${holder.bot.model}` : createMockModel(bot.name),
     tools: { ...connectors.tools, ...builtIn.tools },
     memory,
   });
@@ -217,7 +217,7 @@ class TurnFolder {
       createdAt: new Date().toISOString(),
       status: "streaming",
       parts: [],
-      model: isMock() ? "mock" : bot.model,
+      model: keys.nebius() ? bot.model : "dual-engine",
       route,
     };
   }
@@ -343,7 +343,7 @@ class TurnFolder {
         p.status = status === "stopped" ? "denied" : "error";
       }
     }
-    if (this.message.model !== "mock") {
+    if (this.message.model !== "mock" && this.message.model !== "dual-engine") {
       const model = await findModel(this.message.model ?? "");
       this.message.usage = { input: this.input, output: this.output, costUsd: costUsd(model, this.input, this.output) };
     } else {
