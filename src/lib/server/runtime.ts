@@ -64,15 +64,15 @@ const key = (conversationId: ConversationId, botId: string) => `${conversationId
 /** Settings that need a new controller when they change. Persona text doesn't:
  * the system prompt is rebuilt from the latest bot on every model call. */
 async function signatureOf(bot: Bot): Promise<string> {
-  // The model isn't here: it's read from the latest bot on every call, so a
-  // model switch applies to the next reply without dropping any sessions.
-  // Connections are, along with a version that bumps when any app or server changes.
   return JSON.stringify({
+    version: "dual-engine-v2",
     tools: bot.tools,
     approval: bot.approval,
     connections: bot.connections,
     connectionsVersion: bot.connections.length ? await connectionsVersion() : 0,
-    mock: isMock(),
+    hasNebius: keys.nebius(),
+    hasGemini: keys.gemini(),
+    hasGroq: keys.groq(),
   });
 }
 

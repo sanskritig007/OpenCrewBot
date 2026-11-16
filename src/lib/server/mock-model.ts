@@ -102,11 +102,11 @@ export function createMockModel(botName: string) {
       try {
         const res = await routeLLMRequest(
           said,
-          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce. Respond with accurate, high-density, factual, and direct business insight. Follow user preferences and avoid generic filler.`,
+          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce. Respond with thorough, high-density, factual, and complete business insight. Provide complete bullet points and full explanations without cutting off mid-sentence.`,
           {
             taskCategory: "synthesis",
             temperature: 0.15,
-            maxTokens: 512,
+            maxTokens: 1500, // Generous token allowance for complete, comprehensive answers
           }
         );
         reply = res.output;
@@ -114,7 +114,12 @@ export function createMockModel(botName: string) {
         reply = `Encountered an issue communicating with intelligence engine: ${err instanceof Error ? err.message : String(err)}`;
       }
 
-      return { stream: streamOf([...start, ...textParts(reply), { type: "finish", finishReason: "stop", usage }]) };
+      const wordCount = reply.split(/\s+/).length;
+      const outputTokens = Math.max(Math.round(wordCount * 1.35), 50);
+      const inputTokens = Math.max(Math.round(said.length / 4), 20);
+      const dynamicUsage = { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+
+      return { stream: streamOf([...start, ...textParts(reply), { type: "finish", finishReason: "stop", usage: dynamicUsage }]) };
     }) as never,
   });
 }
