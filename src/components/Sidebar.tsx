@@ -8,7 +8,6 @@ import { timeLabel } from "@/lib/client/format";
 import type { Bot, ConversationSummary, Room } from "@/lib/shared/types";
 import { useApp } from "./OpenCrewBotApp";
 import { BotAvatar, IconButton, Mascot, RoomAvatar } from "./ui";
-import { NebiusLogo } from "./NebiusLogo";
 
 type Row =
   | { kind: "room"; id: string; room: Room; summary?: ConversationSummary }
@@ -177,19 +176,16 @@ function SidebarFooter() {
   const { state, setPanel } = useApp();
   const status = state.status;
   const missing = status ? Object.values(status.keys).filter((on) => !on).length : 0;
-  const settingsHint = status?.mock ? "Settings · mock mode until NEBIUS_API_KEY is set" : missing ? `Settings · ${missing} key${missing === 1 ? "" : "s"} not set` : "Settings";
+  const settingsHint = status?.mock ? "Settings · API keys not detected" : "Settings";
   return (
     <div className="flex items-center gap-1 border-t border-line px-3 py-3">
-      <a
-        href="https://tokenfactory.nebius.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex h-10 min-w-0 shrink items-center gap-2 rounded-xl px-3 ring-1 ring-line transition-colors hover:bg-hover hover:ring-line-strong"
-        title="Models by Nebius Token Factory"
+      <div
+        className="flex h-10 min-w-0 shrink items-center gap-2 rounded-xl px-3 ring-1 ring-line bg-raised/40"
+        title="OpenCrewBot 2.0 Dual-Engine Intelligence (Google Gemini 2.5 + Groq Llama 3.3)"
       >
-        <span className="shrink-0 text-[10px] font-semibold tracking-[0.08em] text-faint uppercase">Powered by</span>
-        <NebiusLogo height={14} className="shrink-0" />
-      </a>
+        <span className="shrink-0 text-[10px] font-semibold tracking-[0.08em] text-faint uppercase">Engine</span>
+        <span className="text-[11.5px] font-semibold text-emerald-400">Gemini + Groq</span>
+      </div>
       <IconButton label="Connections" onClick={() => setPanel({ kind: "connections" })} className="ml-auto">
         <Plug size={18} />
       </IconButton>

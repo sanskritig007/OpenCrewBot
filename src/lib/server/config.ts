@@ -20,19 +20,29 @@ export const OWNER_ID = "owner";
 
 export const keys = {
   nebius: () => Boolean(process.env.NEBIUS_API_KEY),
+  gemini: () => Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+  groq: () => Boolean(process.env.GROQ_API_KEY),
   tavily: () => Boolean(process.env.TAVILY_API_KEY),
   jev: () => Boolean(process.env.TYPESAFE_API_KEY),
   browserbase: () => Boolean(process.env.BROWSERBASE_API_KEY),
   composio: () => Boolean(process.env.COMPOSIO_API_KEY),
 };
 
-/** Without a Nebius key, bots run on a scripted local model so the UI still works. */
-export const isMock = () => !keys.nebius();
+/** If neither Nebius nor Gemini nor Groq is configured, fall back to mock. */
+export const isMock = () => !keys.nebius() && !keys.gemini() && !keys.groq();
 
 export function appStatus(): AppStatus {
   return {
     mock: isMock(),
-    keys: { nebius: keys.nebius(), tavily: keys.tavily(), jev: keys.jev(), browserbase: keys.browserbase(), composio: keys.composio() },
+    keys: {
+      nebius: keys.nebius(),
+      gemini: keys.gemini(),
+      groq: keys.groq(),
+      tavily: keys.tavily(),
+      jev: keys.jev(),
+      browserbase: keys.browserbase(),
+      composio: keys.composio(),
+    },
     dataDir: DATA_DIR,
   };
 }

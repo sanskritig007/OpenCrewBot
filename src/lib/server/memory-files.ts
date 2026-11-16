@@ -56,6 +56,13 @@ export function workspaceDir(botId: string): string {
   return dir;
 }
 
+export function deleteWorkspace(botId: string): void {
+  const dir = workspaceDir(botId);
+  if (existsSync(dir)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function memoryPath(botId: string): string {
   return join(workspaceDir(botId), "MEMORY.md");
 }

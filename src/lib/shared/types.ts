@@ -126,7 +126,15 @@ export interface ModelOption {
 
 export interface AppStatus {
   mock: boolean;
-  keys: { nebius: boolean; tavily: boolean; jev: boolean; browserbase: boolean; composio: boolean };
+  keys: {
+    nebius: boolean;
+    gemini?: boolean;
+    groq?: boolean;
+    tavily: boolean;
+    jev: boolean;
+    browserbase: boolean;
+    composio: boolean;
+  };
   dataDir: string;
 }
 

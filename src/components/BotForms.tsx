@@ -152,7 +152,7 @@ export function BotForm({ bot, onDone }: { bot?: Bot; onDone?: (bot: Bot) => voi
           <span className="mb-1.5 block text-[12.5px] font-medium text-mute">Model</span>
           <ModelPicker value={form.model} onChange={(id) => set("model", id)} />
           <span className="mt-1.5 block text-[12px] leading-snug text-faint">
-            {state.status?.mock ? "Mock mode: replies come from a scripted model until NEBIUS_API_KEY is set." : "Open-source models on Nebius Token Factory."}
+            {state.status?.mock ? "Mock mode: replies come from a scripted model until GEMINI_API_KEY or GROQ_API_KEY is configured." : "Dual-Engine Active: Google Gemini + Groq Llama/Qwen"}
           </span>
         </div>
 

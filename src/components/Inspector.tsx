@@ -181,7 +181,11 @@ function BotDetails({ bot }: { bot: Bot }) {
       <section>
         <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-faint">Default model</h3>
         <ModelPicker value={bot.model} onChange={switchModel} />
-        {state.status?.mock && <p className="mt-1.5 px-1 text-[12px] text-faint">Mock mode: replies use a scripted model until NEBIUS_API_KEY is set.</p>}
+        {state.status?.mock ? (
+          <p className="mt-1.5 px-1 text-[12px] text-faint">Mock mode: replies use a scripted model until GEMINI_API_KEY or GROQ_API_KEY is configured.</p>
+        ) : (
+          <p className="mt-1.5 px-1 text-[12px] text-emerald-400/90 font-medium">Dual-Engine Active: Gemini 2.5 Flash + Groq (Llama/Qwen)</p>
+        )}
       </section>
       <Card title="Tools">
         {tools.length ? (

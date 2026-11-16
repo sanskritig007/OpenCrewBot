@@ -3,6 +3,7 @@
 // "remember …" calls the memory tool, "search …" calls web search, "ask me …"
 // asks a question card, and "open <url>" drives the browser (which asks first).
 import { MastraLanguageModelV2Mock } from "@mastra/core/test-utils/llm-mock";
+import { routeLLMRequest } from "./models/model-router.ts";
 
 type Part = Record<string, unknown>;
 type PromptMessage = { role: string; content: unknown };
@@ -96,10 +97,23 @@ export function createMockModel(botName: string) {
       const search = said.match(/(?:search|look up|find)\s+(?:for\s+)?(.+)/i);
       if (search && tools.has("web_search")) return toolCall("web_search", { query: search[1], maxResults: 3 });
 
-      const reply =
-        `Hi, I'm **${botName}**, running on the *mock model* because no \`NEBIUS_API_KEY\` is set yet.\n\n` +
-        `You said: "${said.slice(0, 200)}"\n\n` +
-        "Try `remember that I like short answers`, `search for Nebius Token Factory`, or `ask me something` to see tools run.";
+      // Call real live Multi-Model Engine (Gemini / Groq) instead of canned text!
+      let reply = "";
+      try {
+        const res = await routeLLMRequest(
+          said,
+          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce. Respond with accurate, high-density, factual, and direct business insight. Follow user preferences and avoid generic filler.`,
+          {
+            taskCategory: "synthesis",
+            temperature: 0.15,
+            maxTokens: 512,
+          }
+        );
+        reply = res.output;
+      } catch (err) {
+        reply = `Encountered an issue communicating with intelligence engine: ${err instanceof Error ? err.message : String(err)}`;
+      }
+
       return { stream: streamOf([...start, ...textParts(reply), { type: "finish", finishReason: "stop", usage }]) };
     }) as never,
   });
