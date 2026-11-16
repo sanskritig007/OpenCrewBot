@@ -23,12 +23,14 @@ function lastUserText(prompt: PromptMessage[]): string {
   return "";
 }
 
-function streamOf(parts: Part[], delayMs = 25): ReadableStream<Part> {
+function streamOf(parts: Part[], delayMs = 0): ReadableStream<Part> {
   return new ReadableStream({
     async start(controller) {
       for (const part of parts) {
         controller.enqueue(part);
-        if (part.type === "text-delta") await new Promise((r) => setTimeout(r, delayMs));
+        if (delayMs > 0 && part.type === "text-delta") {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
       }
       controller.close();
     },
