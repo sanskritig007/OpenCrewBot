@@ -107,3 +107,4 @@ export async function getAuditHistory(conversationId?: string, limit = 50): Prom
     ? inMemoryAuditTrail.filter((e) => e.conversationId === conversationId).slice(0, limit)
     : inMemoryAuditTrail.slice(0, limit);
 }
+

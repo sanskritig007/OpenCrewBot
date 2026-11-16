@@ -144,3 +144,4 @@ export function getPendingApprovals(conversationId?: string): PendingApprovalReq
   const all = Array.from(pendingApprovals.values());
   return conversationId ? all.filter((r) => r.conversationId === conversationId) : all;
 }
+

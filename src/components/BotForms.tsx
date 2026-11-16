@@ -187,8 +187,9 @@ export function BotForm({ bot, onDone }: { bot?: Bot; onDone?: (bot: Bot) => voi
             value={form.approval}
             onChange={(v) => set("approval", v)}
             options={[
-              { value: "ask", label: "Ask first", hint: "Browser actions wait for your OK." },
-              { value: "full", label: "Full access", hint: "Acts without asking." },
+              { value: "ask", label: "Ask first", hint: "Sensitive & external actions wait for your OK." },
+              { value: "controlled", label: "Controlled", hint: "Internal edits allowed, external asks." },
+              { value: "full", label: "Full access", hint: "Acts autonomously without asking." },
             ]}
           />
         </Field>

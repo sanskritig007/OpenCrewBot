@@ -60,16 +60,43 @@ export function createMockModel(botName: string) {
       const start = [{ type: "stream-start", warnings: [] }];
 
       if (last?.role === "tool") {
-        // Tool results arrive wrapped as { type, value }; show the value plainly.
+        // Tool results arrive wrapped as { type, value }; forward to live engine for real answer!
         const output = (last.content as Array<{ output?: { value?: unknown } }>)?.[0]?.output;
         const value = output && typeof output === "object" && "value" in output ? output.value : output;
         const content = value && typeof value === "object" && "content" in value ? (value as { content: unknown }).content : value;
-        const result = (typeof content === "string" ? content : JSON.stringify(content ?? "")).slice(0, 160);
+        const toolResult = typeof content === "string" ? content : JSON.stringify(content ?? "");
+
+        // Find the user's original query
+        const lines = lastUserText(prompt).split("\n").filter(Boolean);
+        const personLine = lines.filter((l) => l.startsWith("Person: ")).pop();
+        const originalUserPrompt = personLine ? personLine.slice("Person: ".length) : (lines.pop() ?? "");
+
+        let toolFollowUpReply = "";
+        try {
+          const res = await routeLLMRequest(
+            `Original user inquiry: "${originalUserPrompt}".\nClarification / tool result received: "${toolResult}".\nNow provide the comprehensive, factual response to the user incorporating this verified information without fluff.`,
+            `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Respond thoroughly and accurately based on the user's verified response or tool result.`,
+            {
+              taskCategory: "synthesis",
+              temperature: 0.15,
+              maxTokens: 1200,
+            }
+          );
+          toolFollowUpReply = res.output;
+        } catch (err) {
+          toolFollowUpReply = `Action completed: ${toolResult}`;
+        }
+
+        const wordCount = toolFollowUpReply.split(/\s+/).length;
+        const outputTokens = Math.max(Math.round(wordCount * 1.35), 50);
+        const inputTokens = Math.max(Math.round(originalUserPrompt.length / 4), 20);
+        const dynamicUsage = { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+
         return {
           stream: streamOf([
             ...start,
-            ...textParts(`Done. The tool returned: ${result}\n\n*(Mock model. The tool really ran.)*`),
-            { type: "finish", finishReason: "stop", usage },
+            ...textParts(toolFollowUpReply),
+            { type: "finish", finishReason: "stop", usage: dynamicUsage },
           ]),
         };
       }
