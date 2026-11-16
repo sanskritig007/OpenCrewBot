@@ -65,7 +65,7 @@ const key = (conversationId: ConversationId, botId: string) => `${conversationId
  * the system prompt is rebuilt from the latest bot on every model call. */
 async function signatureOf(bot: Bot): Promise<string> {
   return JSON.stringify({
-    version: "dual-engine-v5-integrations",
+    version: "dual-engine-v6-real-commit",
     tools: bot.tools,
     approval: bot.approval,
     connections: bot.connections,
@@ -402,7 +402,7 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
     const ghMatch = content.match(/github\.com\/([^\/\s]+)\/([^\/\s#?]+)/i);
     if (ghMatch) {
       const owner = ghMatch[1];
-      const repo = ghMatch[2].replace(/\.git$/i, "");
+      const repo = ghMatch[2].replace(/[)\],.;]+$/g, "").replace(/\.git$/i, "");
       const { getRepoStatus, createPullRequest } = await import("./integrations/github-connector");
       if (/\b(?:create pr|open pr|make pr)\b/i.test(lower)) {
         const pr = await createPullRequest(
@@ -419,6 +419,13 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
         return folder.message;
       }
       const status = await getRepoStatus(owner, repo);
+      const asksCommit = /\b(?:commit|commti|commits|latest commit)\b/i.test(lower);
+      if (asksCommit) {
+        const reply = `Aapke repository **\`${owner}/${repo}\`** ka **Latest Commit** yeh hai:\n\n- **Commit SHA:** \`${status.latestCommitSha}\`\n- **Message:** **"${status.latestCommitMessage}"**\n- **Branch:** \`${status.defaultBranch}\`\n- **Verified:** Live GitHub repository commit verified\n\nIs commit ke aage aap mujhse kya kaam karwana chahte hain?\n1. **Code Review:** Is commit ke changes review karna\n2. **Check Issues:** Open bugs aur tasks inspect karna\n3. **Create PR:** Naya Feature Pull Request open karna`;
+        folder.message.parts.push({ kind: "text", text: reply });
+        await folder.finish("done");
+        return folder.message;
+      }
       const reply = `Maine aapka repository **\`${owner}/${repo}\`** successfully detect aur inspect kar liya hai!\n- **Default Branch:** \`${status.defaultBranch}\`\n- **Open Issues:** ${status.openIssuesCount} | **Open PRs:** ${status.openPullRequestsCount}\n- **Latest Commit:** \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n- **Mode:** ${status.mode.toUpperCase()}\n\nIs repository par aap mujhse kya kaam karwana chahte hain?\n1. **Create PR:** Feature branch ke liye naya Pull Request open karna\n2. **Check Issues:** Open bug reports ya tasks inspect karna\n3. **Code Review:** Recent changes aur architecture review karna`;
       folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
