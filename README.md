@@ -16,6 +16,7 @@
 **Repository:** [https://github.com/sanskritig007/OpenCrewBot](https://github.com/sanskritig007/OpenCrewBot)  
 **Base Codebase Attribution:** Retained MIT foundation from [Studio1-OSS/OpenCrewBot](https://github.com/Studio1-OSS/OpenCrewBot).
 
+**Demonstration Video Walkthrough:** [Watch Live on Google Drive ↗](https://drive.google.com/file/d/1KYj7u7xh-EivHa3EPhuepPR2FpN7wdSt/view?usp=sharing)
 </div>
 
 ---
