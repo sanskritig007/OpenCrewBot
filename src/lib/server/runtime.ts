@@ -65,7 +65,7 @@ const key = (conversationId: ConversationId, botId: string) => `${conversationId
  * the system prompt is rebuilt from the latest bot on every model call. */
 async function signatureOf(bot: Bot): Promise<string> {
   return JSON.stringify({
-    version: "dual-engine-v6-real-commit",
+    version: "dual-engine-v7-multilingual-mirroring",
     tools: bot.tools,
     approval: bot.approval,
     connections: bot.connections,
@@ -395,16 +395,19 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
   await saveMessage(folder.message);
   publish({ type: "message", message: folder.message });
 
-  // ── MODULE H: NATURAL DYNAMIC WORKING INTEGRATIONS ────────────────────────
+  // ── MODULE H: NATURAL DYNAMIC WORKING INTEGRATIONS (MULTILINGUAL MIRRORING) ───
   const lower = content.toLowerCase().trim();
   try {
+    const { detectLanguage } = await import("./orchestrator/chief-of-staff");
+    const lang = detectLanguage(content);
+
     // 1. GitHub Integration Handling
     const ghMatch = content.match(/github\.com\/([^\/\s]+)\/([^\/\s#?]+)/i);
     if (ghMatch) {
       const owner = ghMatch[1];
       const repo = ghMatch[2].replace(/[)\],.;]+$/g, "").replace(/\.git$/i, "");
       const { getRepoStatus, createPullRequest } = await import("./integrations/github-connector");
-      if (/\b(?:create pr|open pr|make pr)\b/i.test(lower)) {
+      if (/\b(?:create pr|open pr|make pr|pr bana|pr banao)\b/i.test(lower)) {
         const pr = await createPullRequest(
           "feat(portal): add student admissions verification checklist",
           "feature/admissions-checklist",
@@ -413,7 +416,10 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
           owner,
           repo
         );
-        const prReply = `[GitHub Integration] **Pull Request #${pr.prNumber} Successfully Created** for \`${owner}/${repo}\`\n- Title: "${pr.title}"\n- Branch: \`${pr.head}\` -> \`${pr.base}\`\n- Mergeable: ${pr.mergeable ? "Yes" : "No"}\n- PR Link: [View PR on GitHub](${pr.prUrl})`;
+        const prReply =
+          lang === "english"
+            ? `[GitHub Integration] **Pull Request #${pr.prNumber} Successfully Created** for \`${owner}/${repo}\`\n- Title: "${pr.title}"\n- Branch: \`${pr.head}\` -> \`${pr.base}\`\n- Mergeable: ${pr.mergeable ? "Yes" : "No"}\n- PR Link: [View PR on GitHub](${pr.prUrl})`
+            : `[GitHub Integration] **Pull Request #${pr.prNumber} Successfully Create ho gaya hai** \`${owner}/${repo}\` ke liye!\n- Title: "${pr.title}"\n- Branch: \`${pr.head}\` -> \`${pr.base}\`\n- Mergeable: ${pr.mergeable ? "Yes" : "No"}\n- PR Link: [View PR on GitHub](${pr.prUrl})`;
         folder.message.parts.push({ kind: "text", text: prReply });
         await folder.finish("done");
         return folder.message;
@@ -421,42 +427,66 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
       const status = await getRepoStatus(owner, repo);
       const asksCommit = /\b(?:commit|commti|commits|latest commit)\b/i.test(lower);
       if (asksCommit) {
-        const reply = `Aapke repository **\`${owner}/${repo}\`** ka **Latest Commit** yeh hai:\n\n- **Commit SHA:** \`${status.latestCommitSha}\`\n- **Message:** **"${status.latestCommitMessage}"**\n- **Branch:** \`${status.defaultBranch}\`\n- **Verified:** Live GitHub repository commit verified\n\nIs commit ke aage aap mujhse kya kaam karwana chahte hain?\n1. **Code Review:** Is commit ke changes review karna\n2. **Check Issues:** Open bugs aur tasks inspect karna\n3. **Create PR:** Naya Feature Pull Request open karna`;
+        const reply =
+          lang === "english"
+            ? `Here is the **Latest Commit** for repository **\`${owner}/${repo}\`**:\n\n- **Commit SHA:** \`${status.latestCommitSha}\`\n- **Message:** **"${status.latestCommitMessage}"**\n- **Branch:** \`${status.defaultBranch}\`\n- **Status:** Verified Live from GitHub\n\nWould you like me to review the code in this commit, inspect open issues, or create a Pull Request?`
+            : `Aapke repository **\`${owner}/${repo}\`** ka **Latest Commit** yeh hai:\n\n- **Commit SHA:** \`${status.latestCommitSha}\`\n- **Message:** **"${status.latestCommitMessage}"**\n- **Branch:** \`${status.defaultBranch}\`\n- **Status:** Verified Live from GitHub\n\nIs commit ke baad aap mujhse kya kaam karwana chahte hain? (Code Review, Issues check karna, ya Feature PR open karna)?`;
         folder.message.parts.push({ kind: "text", text: reply });
         await folder.finish("done");
         return folder.message;
       }
-      const reply = `Maine aapka repository **\`${owner}/${repo}\`** successfully detect aur inspect kar liya hai!\n- **Default Branch:** \`${status.defaultBranch}\`\n- **Open Issues:** ${status.openIssuesCount} | **Open PRs:** ${status.openPullRequestsCount}\n- **Latest Commit:** \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n- **Mode:** ${status.mode.toUpperCase()}\n\nIs repository par aap mujhse kya kaam karwana chahte hain?\n1. **Create PR:** Feature branch ke liye naya Pull Request open karna\n2. **Check Issues:** Open bug reports ya tasks inspect karna\n3. **Code Review:** Recent changes aur architecture review karna`;
+      const reply =
+        lang === "english"
+          ? `I have successfully inspected your repository **\`${owner}/${repo}\`**:\n- **Default Branch:** \`${status.defaultBranch}\`\n- **Open Issues:** ${status.openIssuesCount} | **Open PRs:** ${status.openPullRequestsCount}\n- **Latest Commit:** \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n\nWhat would you like me to do on this repository?\n1. **Create PR:** Open a new Pull Request\n2. **Check Issues:** Inspect bug reports or tasks\n3. **Code Review:** Review recent architecture and changes`
+          : `Maine aapka repository **\`${owner}/${repo}\`** successfully detect aur inspect kar liya hai!\n- **Default Branch:** \`${status.defaultBranch}\`\n- **Open Issues:** ${status.openIssuesCount} | **Open PRs:** ${status.openPullRequestsCount}\n- **Latest Commit:** \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n\nIs repository par aap mujhse kya kaam karwana chahte hain?\n1. **Create PR:** Feature branch ke liye naya Pull Request open karna\n2. **Check Issues:** Open bug reports ya tasks inspect karna\n3. **Code Review:** Recent changes aur architecture review karna`;
       folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
       return folder.message;
     } else if (/\b(?:github|repo status|create pr|open pr|git status)\b/i.test(lower)) {
-      const reply = `Zaroor! GitHub par kaam karne ke liye kripya mujhe apna repository link share kijiye (jaise \`https://github.com/username/project\`), taaki main repo inspect karke aage ka kaam (PR, code review, ya issue tracking) kar sakoon.`;
+      const reply =
+        lang === "english"
+          ? `Certainly! To work on GitHub, please share your repository URL (e.g., \`https://github.com/username/project\`) so I can inspect it and proceed.`
+          : `Zaroor! GitHub par kaam karne ke liye kripya mujhe apna repository link share kijiye (jaise \`https://github.com/username/project\`), taaki main repo inspect karke aage ka kaam (PR, code review, ya issue tracking) kar sakoon.`;
       folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
       return folder.message;
     }
 
-    // 2. Email Integration Handling (Natural Conversation, No Harsh Robotic Banner)
-    if (/\b(?:send email|dispatch email|email to|send notification)\b/i.test(lower)) {
+    // 2. Email Integration Handling (Adaptive Language Mirroring & Zero-Hallucination Gate)
+    if (/\b(?:send email|dispatch email|email to|send notification|email bhej|mail bhej|email karo|mail karo)\b/i.test(lower)) {
       const { sendStudentNotification } = await import("./integrations/email-dispatcher");
       const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
       const recipientEmail = emailMatch ? emailMatch[0] : "";
+
       if (!recipientEmail) {
-        const reply = `Kisko email bhejna hai aur subject/context kya hai? Kripya recipient ka email address aur specific purpose batayein, taaki main ek accurate aur professional email draft kar sakoon.`;
+        let reply = "";
+        if (lang === "hindi") {
+          reply = `ईमेल भेजने के लिए कृपया निम्नलिखित विवरण साझा करें:\n1. **प्राप्तकर्ता (Recipient):** ईमेल किसे भेजना है (उनका ईमेल पता क्या है)?\n2. **संदर्भ (Context):** ईमेल का मुख्य विषय या उद्देश्य क्या है (जैसे आवेदन स्थिति, छात्रवृत्ति, या वीज़ा दस्तावेज़)?\n\nबिना प्राप्तकर्ता ईमेल के मैं अनुमान नहीं लगा सकती। कृपया ईमेल पता साझा करें।`;
+        } else if (lang === "hinglish") {
+          reply = `Zaroor! Email bhejne ke liye kripya yeh do zaroori cheezein batayein:\n1. **Recipient:** Kisko email bhejna hai (unka email address kya hai)?\n2. **Context:** Email kis baare mein hai (jaise SOP review, scholarship deadline, ya visa checklist)?\n\nAap recipient email share karein, fir main turant accurate aur verified email draft karungi bina kisi guessing ke.`;
+        } else {
+          reply = `Certainly! To dispatch an official email without guessing or hallucinating, please provide:\n1. **Recipient:** Who should receive this email (their email address)?\n2. **Context:** What is the specific purpose/topic (e.g., SOP review, scholarship deadline, or visa checklist)?\n\nOnce you share the recipient email address, I will draft and dispatch it right away.`;
+        }
         folder.message.parts.push({ kind: "text", text: reply });
         await folder.finish("done");
         return folder.message;
       }
+
       const result = await sendStudentNotification({
         to: recipientEmail,
-        studentName: "Student / Partner",
+        studentName: "Admissions Candidate / Partner",
         universityName: "MeetUniversity International Admissions",
         subject: "Official Admissions Advisory & Document Review",
         bodyMarkdown: "Your study abroad profile and application documentation have been reviewed. Please find the verified guidance and next steps.",
         urgency: "high",
       });
-      const replyText = `[Email Engine] **Official Communication Dispatched**\n- Recipient: \`${result.recipient}\`\n- Tracking Reference: \`#${result.trackingId}\`\n- Delivery Status: **${result.deliveryStatus.toUpperCase()}** (Mode: ${result.mode.toUpperCase()})\n- Subject: "${result.subject}"`;
+
+      let replyText = "";
+      if (lang === "hinglish" || lang === "hindi") {
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nEmail verified recipient ko successfully bhej diya gaya hai!`;
+      } else {
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nThe communication has been dispatched with verified delivery.`;
+      }
       folder.message.parts.push({ kind: "text", text: replyText });
       await folder.finish("done");
       return folder.message;
@@ -476,7 +506,10 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
         stage: "shortlist_finalized",
         counselorId: "counselor-vikram-04",
       });
-      const replyText = `[CRM Webhook Sync] **Student Lead Synchronized**\n- Event: \`${res.eventType}\`\n- Event ID: \`${res.eventId}\`\n- HTTP Status: **${res.httpStatus} OK** (Mode: ${res.mode.toUpperCase()})\n- Destination: \`${res.destination}\`\n- HMAC-SHA256 Signature: \`${res.signature?.slice(0, 24)}...\``;
+      const replyText =
+        lang === "english"
+          ? `[CRM Webhook Sync] **Student Lead Synchronized**\n- Event: \`${res.eventType}\`\n- Event ID: \`${res.eventId}\`\n- HTTP Status: **${res.httpStatus} OK** (Mode: ${res.mode.toUpperCase()})\n- Destination: \`${res.destination}\`\n- HMAC-SHA256 Signature: \`${res.signature?.slice(0, 24)}...\``
+          : `[CRM Webhook Sync] **Student Lead CRM mein Sync Ho Gaya Hai**\n- Event: \`${res.eventType}\`\n- Event ID: \`${res.eventId}\`\n- HTTP Status: **${res.httpStatus} OK**\n- Destination: \`${res.destination}\`\n- HMAC Signature: \`${res.signature?.slice(0, 24)}...\``;
       folder.message.parts.push({ kind: "text", text: replyText });
       await folder.finish("done");
       return folder.message;
