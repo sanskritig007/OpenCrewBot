@@ -395,52 +395,67 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
   await saveMessage(folder.message);
   publish({ type: "message", message: folder.message });
 
-  // ── MODULE H: FIRST-CLASS WORKING INTEGRATIONS ─────────────────────────────
+  // ── MODULE H: NATURAL DYNAMIC WORKING INTEGRATIONS ────────────────────────
   const lower = content.toLowerCase().trim();
   try {
-    if (/\b(?:github|repo status|create pr|open pr|git status)\b/i.test(lower)) {
+    // 1. GitHub Integration Handling
+    const ghMatch = content.match(/github\.com\/([^\/\s]+)\/([^\/\s#?]+)/i);
+    if (ghMatch) {
+      const owner = ghMatch[1];
+      const repo = ghMatch[2].replace(/\.git$/i, "");
       const { getRepoStatus, createPullRequest } = await import("./integrations/github-connector");
-      let replyText = "";
-      if (/\b(?:create pr|open pr)\b/i.test(lower)) {
+      if (/\b(?:create pr|open pr|make pr)\b/i.test(lower)) {
         const pr = await createPullRequest(
-          "feat(portal): add UK CAS document upload verification",
-          "feature/uk-cas-checklist",
-          "Adds automated document checklist validation for UK student visa applicants."
+          "feat(portal): add student admissions verification checklist",
+          "feature/admissions-checklist",
+          "Automated PR created by OpenCrewBot for repository integration.",
+          "main",
+          owner,
+          repo
         );
-        replyText = `[GitHub Integration] **Pull Request #${pr.prNumber} Opened**\n- Title: "${pr.title}"\n- Head: \`${pr.head}\` -> Base: \`${pr.base}\`\n- Mode: **${pr.mode.toUpperCase()}**\n- Mergeable: ${pr.mergeable ? "Yes" : "No"}\n- URL: [View Pull Request](${pr.prUrl})`;
-      } else {
-        const status = await getRepoStatus("meetuniversity", "student-portal");
-        replyText = `[GitHub Integration] **Repository Status: ${status.repo}**\n- Default Branch: \`${status.defaultBranch}\`\n- Open Issues: ${status.openIssuesCount} | Open PRs: ${status.openPullRequestsCount}\n- Latest Commit: \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n- Execution Mode: **${status.mode.toUpperCase()}**`;
+        const prReply = `[GitHub Integration] **Pull Request #${pr.prNumber} Successfully Created** for \`${owner}/${repo}\`\n- Title: "${pr.title}"\n- Branch: \`${pr.head}\` -> \`${pr.base}\`\n- Mergeable: ${pr.mergeable ? "Yes" : "No"}\n- PR Link: [View PR on GitHub](${pr.prUrl})`;
+        folder.message.parts.push({ kind: "text", text: prReply });
+        await folder.finish("done");
+        return folder.message;
       }
-      folder.message.parts.push({ kind: "text", text: replyText });
+      const status = await getRepoStatus(owner, repo);
+      const reply = `Maine aapka repository **\`${owner}/${repo}\`** successfully detect aur inspect kar liya hai!\n- **Default Branch:** \`${status.defaultBranch}\`\n- **Open Issues:** ${status.openIssuesCount} | **Open PRs:** ${status.openPullRequestsCount}\n- **Latest Commit:** \`${status.latestCommitSha}\` - "${status.latestCommitMessage}"\n- **Mode:** ${status.mode.toUpperCase()}\n\nIs repository par aap mujhse kya kaam karwana chahte hain?\n1. **Create PR:** Feature branch ke liye naya Pull Request open karna\n2. **Check Issues:** Open bug reports ya tasks inspect karna\n3. **Code Review:** Recent changes aur architecture review karna`;
+      folder.message.parts.push({ kind: "text", text: reply });
+      await folder.finish("done");
+      return folder.message;
+    } else if (/\b(?:github|repo status|create pr|open pr|git status)\b/i.test(lower)) {
+      const reply = `Zaroor! GitHub par kaam karne ke liye kripya mujhe apna repository link share kijiye (jaise \`https://github.com/username/project\`), taaki main repo inspect karke aage ka kaam (PR, code review, ya issue tracking) kar sakoon.`;
+      folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
       return folder.message;
     }
 
+    // 2. Email Integration Handling (Natural Conversation, No Harsh Robotic Banner)
     if (/\b(?:send email|dispatch email|email to|send notification)\b/i.test(lower)) {
       const { sendStudentNotification } = await import("./integrations/email-dispatcher");
       const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
       const recipientEmail = emailMatch ? emailMatch[0] : "";
-      let replyText = "";
       if (!recipientEmail) {
-        replyText = `⚠️ **[Anti-Hallucination Gate Blocked]** Email dispatch halted: Recipient email address is missing.\n\nPlease provide who to send the email to (e.g. \`send email to student@oxford.ac.uk\`) so I do not hallucinate recipient details.`;
-      } else {
-        const result = await sendStudentNotification({
-          to: recipientEmail,
-          studentName: "Aditya Kumar",
-          universityName: "Imperial College London",
-          applicationId: "MU-ICL-2026-904",
-          subject: "Official Admissions Advisory: Statement of Purpose Review",
-          bodyMarkdown: "Your draft SOP for MSc Advanced Computing has been reviewed by our Senior Admissions Counselor. Please review the attached feedback.",
-          urgency: "high",
-        });
-        replyText = `[Email Engine] **Official Communication Dispatched**\n- Recipient: \`${result.recipient}\`\n- Tracking ID: \`#${result.trackingId}\`\n- Status: **${result.deliveryStatus.toUpperCase()}** (Mode: ${result.mode.toUpperCase()})\n- Subject: "${result.subject}"\n- Deliverability: 100% Verified against Anti-Hallucination Gate`;
+        const reply = `Kisko email bhejna hai aur subject/context kya hai? Kripya recipient ka email address aur specific purpose batayein, taaki main ek accurate aur professional email draft kar sakoon.`;
+        folder.message.parts.push({ kind: "text", text: reply });
+        await folder.finish("done");
+        return folder.message;
       }
+      const result = await sendStudentNotification({
+        to: recipientEmail,
+        studentName: "Student / Partner",
+        universityName: "MeetUniversity International Admissions",
+        subject: "Official Admissions Advisory & Document Review",
+        bodyMarkdown: "Your study abroad profile and application documentation have been reviewed. Please find the verified guidance and next steps.",
+        urgency: "high",
+      });
+      const replyText = `[Email Engine] **Official Communication Dispatched**\n- Recipient: \`${result.recipient}\`\n- Tracking Reference: \`#${result.trackingId}\`\n- Delivery Status: **${result.deliveryStatus.toUpperCase()}** (Mode: ${result.mode.toUpperCase()})\n- Subject: "${result.subject}"`;
       folder.message.parts.push({ kind: "text", text: replyText });
       await folder.finish("done");
       return folder.message;
     }
 
+    // 3. CRM Integration Handling
     if (/\b(?:sync crm|sync lead|crm sync|webhook sync)\b/i.test(lower)) {
       const { syncStudentLead } = await import("./integrations/crm-webhook-sync");
       const res = await syncStudentLead({
