@@ -65,7 +65,7 @@ const key = (conversationId: ConversationId, botId: string) => `${conversationId
  * the system prompt is rebuilt from the latest bot on every model call. */
 async function signatureOf(bot: Bot): Promise<string> {
   return JSON.stringify({
-    version: "dual-engine-v2",
+    version: "dual-engine-v3-tool-response",
     tools: bot.tools,
     approval: bot.approval,
     connections: bot.connections,
