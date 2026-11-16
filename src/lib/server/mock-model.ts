@@ -73,13 +73,26 @@ export function createMockModel(botName: string) {
 
         let toolFollowUpReply = "";
         try {
+          const isShort = /short/i.test(toolResult);
+          const isDetailed = /detailed/i.test(toolResult);
+
+          let formatDirective = "";
+          if (isShort) {
+            formatDirective = "The user explicitly selected a SHORT format. Provide a concise, high-impact 3-bullet executive summary only (under 100 words). Do NOT write long paragraphs.";
+          } else if (isDetailed) {
+            formatDirective = "The user explicitly requested a DETAILED guide. Provide a comprehensive, multi-stage roadmap with university tiers, budget ranges, IELTS/GRE timelines, and application milestones.";
+          }
+
           const res = await routeLLMRequest(
-            `Original user inquiry: "${originalUserPrompt}".\nClarification / tool result received: "${toolResult}".\nNow provide the comprehensive, factual response to the user incorporating this verified information without fluff.`,
-            `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Respond thoroughly and accurately based on the user's verified response or tool result.`,
+            `Original inquiry: "${originalUserPrompt}".
+User's format preference: "${toolResult}".
+Directive: ${formatDirective}
+Answer the user's inquiry directly now adhering strictly to their chosen length and format.`,
+            `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Always respect the user's chosen response length (short vs detailed) strictly.`,
             {
               taskCategory: "synthesis",
               temperature: 0.15,
-              maxTokens: 1200,
+              maxTokens: isShort ? 250 : 1200,
             }
           );
           toolFollowUpReply = res.output;
@@ -117,8 +130,11 @@ export function createMockModel(botName: string) {
       if (remember && tools.has("memory_add")) return toolCall("memory_add", { note: remember[1] });
       if (/\bask me\b/i.test(said) && tools.has("ask_user")) {
         return toolCall("ask_user", {
-          question: "Do you want short answers or detailed ones?",
-          options: [{ label: "Short" }, { label: "Detailed", description: "With sources and caveats" }],
+          question: "How would you like your study abroad guidance formatted?",
+          options: [
+            { label: "Short Summary", description: "Quick 3-bullet executive overview (under 100 words)" },
+            { label: "Detailed Guide", description: "Comprehensive roadmap with university tiers, budget, and timelines" },
+          ],
         });
       }
       const url = said.match(/\bopen (https?:\/\/\S+)/i);
