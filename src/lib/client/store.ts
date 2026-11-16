@@ -77,7 +77,8 @@ function touchSummary(state: AppState, message: ChatMessage, isNewReply: boolean
   };
 }
 
-export function reducer(state: AppState, action: Action): AppState {
+export function reducer(state: AppState = initialState, action: Action): AppState {
+  if (!state) state = initialState;
   switch (action.type) {
     case "bootstrap": {
       const summaries: Record<ConversationId, ConversationSummary> = {};
@@ -121,16 +122,19 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     }
     case "event":
-      return applyEvent(state, action.event);
+      return applyEvent(state, action.event) ?? state;
+    default:
+      return state;
   }
 }
 
 function applyEvent(state: AppState, event: ServerEvent): AppState {
+  if (!state) return initialState;
   switch (event.type) {
     case "message": {
       const { message } = event;
-      const list = state.transcripts[message.conversationId];
-      const isNewReply = message.role === "bot" && message.status !== "streaming" && !state.counted[message.id];
+      const list = state.transcripts?.[message.conversationId];
+      const isNewReply = message.role === "bot" && message.status !== "streaming" && !state.counted?.[message.id];
       return {
         ...state,
         transcripts: list ? { ...state.transcripts, [message.conversationId]: upsert(list, message) } : state.transcripts,
@@ -139,7 +143,7 @@ function applyEvent(state: AppState, event: ServerEvent): AppState {
       };
     }
     case "delta": {
-      const list = state.transcripts[event.conversationId];
+      const list = state.transcripts?.[event.conversationId];
       if (!list) return state;
       const i = list.findIndex((m) => m.id === event.messageId);
       if (i === -1) return state;
@@ -153,11 +157,11 @@ function applyEvent(state: AppState, event: ServerEvent): AppState {
       return { ...state, transcripts: { ...state.transcripts, [event.conversationId]: next } };
     }
     case "running": {
-      const prev = state.summaries[event.conversationId] ?? { id: event.conversationId, running: [], unread: 0 };
+      const prev = state.summaries?.[event.conversationId] ?? { id: event.conversationId, running: [], unread: 0 };
       return { ...state, summaries: { ...state.summaries, [event.conversationId]: { ...prev, running: event.botIds } } };
     }
     case "memory-changed":
-      return { ...state, memoryVersion: { ...state.memoryVersion, [event.botId]: (state.memoryVersion[event.botId] ?? 0) + 1 } };
+      return { ...state, memoryVersion: { ...state.memoryVersion, [event.botId]: (state.memoryVersion?.[event.botId] ?? 0) + 1 } };
     case "browser-session": {
       const liveViews = { ...state.liveViews };
       if (event.liveUrl) liveViews[event.botId] = event.liveUrl;
@@ -165,10 +169,12 @@ function applyEvent(state: AppState, event: ServerEvent): AppState {
       return { ...state, liveViews };
     }
     case "connections-changed":
-      return { ...state, connectionsVersion: state.connectionsVersion + 1 };
+      return { ...state, connectionsVersion: (state.connectionsVersion ?? 0) + 1 };
     case "bots-changed":
     case "rooms-changed":
       // The provider refetches the bootstrap payload for these.
+      return state;
+    default:
       return state;
   }
 }
