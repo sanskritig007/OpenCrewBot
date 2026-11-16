@@ -61,9 +61,9 @@ const StreamingMarkdown = memo(function StreamingMarkdown({
     }
 
     const remaining = words.length - visibleCount;
-    // Dynamic typing speed: smooth natural cadence (~22ms per word), accelerating if backlog is large
-    const step = remaining > 80 ? 5 : remaining > 30 ? 2 : 1;
-    const intervalTime = remaining > 80 ? 10 : remaining > 30 ? 16 : 22;
+    // Pleasant readable typewriter speed: reveals 1 word at a time at a natural reading cadence (~45-50ms)
+    const step = remaining > 150 ? 2 : 1;
+    const intervalTime = remaining > 150 ? 35 : remaining > 80 ? 42 : 50;
 
     const timer = setTimeout(() => {
       setVisibleCount((c) => Math.min(words.length, c + step));
