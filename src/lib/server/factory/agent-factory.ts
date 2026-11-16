@@ -166,7 +166,7 @@ export async function createAgentFromPrompt(userPrompt: string): Promise<CreateA
     tools: spec.tools,
     connections: [],
     approval: spec.approval,
-    pinned: false,
+    pinned: true,
     createdAt: new Date().toISOString(),
   };
 

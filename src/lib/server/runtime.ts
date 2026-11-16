@@ -575,13 +575,13 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
             )
               .filter(([, v]) => v)
               .map(([k]) => k)
-              .join(", ")}\n- **Workspace Memory:** Initialized at \`data/workspaces/${createdBot.id}/MEMORY.md\`\n\n*${reasoning}*\n\nYou can now converse directly with @${createdBot.handle} in the sidebar!`
+              .join(", ")}\n- **Workspace Memory:** Initialized at \`data/workspaces/${createdBot.id}/MEMORY.md\`\n\n*${reasoning}*\n\n👉 **[Open Chat with ${createdBot.name}](#dm:${createdBot.id})** or find them in the sidebar!`
           : `✨ **Naya Autonomous Agent Successfully Create Ho Gaya**\n- **Name:** ${createdBot.emoji} **${createdBot.name}** (\`@${createdBot.handle}\`)\n- **Title:** ${createdBot.title}\n- **Model:** \`${createdBot.model}\` | **Policy:** \`${createdBot.approval.toUpperCase()}\`\n- **Tools:** ${Object.entries(
               createdBot.tools
             )
               .filter(([, v]) => v)
               .map(([k]) => k)
-              .join(", ")}\n- **Memory Workspace:** \`data/workspaces/${createdBot.id}/MEMORY.md\` par save ho gaya hai.\n\n*${reasoning}*\n\nAap ab sidebar mein @${createdBot.handle} ke sath seedha chat kar sakte hain!`;
+              .join(", ")}\n- **Memory Workspace:** \`data/workspaces/${createdBot.id}/MEMORY.md\` par save ho gaya hai.\n\n*${reasoning}*\n\n👉 **[${createdBot.name} ke sath chat shuru karein](#dm:${createdBot.id})** ya sidebar mein select karein!`;
       folder.message.parts.push({ kind: "text", text: reply });
       await folder.finish("done");
       return folder.message;
