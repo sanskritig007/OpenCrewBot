@@ -455,7 +455,10 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
     // 2. Email Integration Handling (Multi-Turn Continuity & Adaptive Language Mirroring)
     const { listMessages } = await import("./db");
     const recentMsgs = await listMessages(conversationId, 6);
-    const lastBotMsg = recentMsgs.slice().reverse().find((m) => m.sender.kind === "bot");
+    const lastBotMsg = recentMsgs
+      .slice()
+      .reverse()
+      .find((m) => m.role === "bot" && m.id !== folder.message.id);
     const lastBotText =
       lastBotMsg?.parts
         .filter((p) => p.kind === "text")
@@ -560,6 +563,8 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
       await folder.finish("done");
       return folder.message;
     }
+  } catch (err) {
+    console.error("[Runtime] Integration execution error:", err);
   } finally {
     if (folder.finished) {
       if (state.folders.get(k) === folder) state.folders.delete(k);
