@@ -76,9 +76,11 @@ export function assessActionRisk(
     };
   }
 
-  // 2. High Risk: Code Mutation, Production Pushes, File Deletions
+  // 2. High Risk: Code Mutation, Production Pushes, PRs, File Deletions
   if (
     normName.includes("push") ||
+    normName.includes("pull_request") ||
+    normName.includes("pr") ||
     normName.includes("deploy") ||
     normName.includes("delete") ||
     normName.includes("drop") ||
