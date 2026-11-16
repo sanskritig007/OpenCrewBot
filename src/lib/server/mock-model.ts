@@ -23,6 +23,26 @@ function lastUserText(prompt: PromptMessage[]): string {
   return "";
 }
 
+function formatConversationTranscript(prompt: PromptMessage[]): string {
+  const turns: string[] = [];
+  for (const m of prompt) {
+    if (m.role === "system") continue;
+    let content = "";
+    if (typeof m.content === "string") {
+      content = m.content;
+    } else if (Array.isArray(m.content)) {
+      content = m.content
+        .filter((p: { type?: string }) => p.type === "text")
+        .map((p: { text?: string }) => p.text ?? "")
+        .join(" ");
+    }
+    if (content.trim()) {
+      turns.push(`${m.role === "user" ? "User" : "Assistant"}: ${content.trim()}`);
+    }
+  }
+  return turns.slice(-6).join("\n");
+}
+
 function streamOf(parts: Part[], delayMs = 0): ReadableStream<Part> {
   return new ReadableStream({
     async start(controller) {
@@ -160,14 +180,23 @@ Answer the user's inquiry directly now adhering strictly to their chosen length 
         return { stream: streamOf([...start, ...textParts(statusText), { type: "finish", finishReason: "stop", usage }]) };
       }
 
-      // 2. Integration: Email & Communications Engine (with Anti-Hallucination Gate)
-      if (/\b(?:send email|dispatch email|email to|send notification)\b/i.test(said)) {
+      // 2. Integration: Email & Communications Engine (Polite Inquiry & Mirroring)
+      if (/\b(?:send email|dispatch email|email to|send notification|email bhej|mail bhej|email karo|mail karo)\b/i.test(said)) {
         const { sendStudentNotification } = await import("./integrations/email-dispatcher");
         const emailMatch = said.match(/[\w.-]+@[\w.-]+\.\w+/);
         const recipientEmail = emailMatch ? emailMatch[0] : "";
         if (!recipientEmail) {
-          const blockMsg = `⚠️ **[Anti-Hallucination Gate Blocked]** Email dispatch halted: Recipient email address is missing.\n\nPlease provide who to send the email to (e.g. \`send email to student@oxford.ac.uk\`) so I do not hallucinate recipient details.`;
-          return { stream: streamOf([...start, ...textParts(blockMsg), { type: "finish", finishReason: "stop", usage }]) };
+          const { detectLanguage } = await import("./orchestrator/chief-of-staff");
+          const lang = detectLanguage(said);
+          let askMsg = "";
+          if (lang === "hindi") {
+            askMsg = `ईमेल भेजने के लिए कृपया प्राप्तकर्ता का ईमेल पता (जैसे \`student@university.edu\`) और विषय साझा करें ताकि मैं इसे तुरंत ड्राफ्ट कर सकूँ।`;
+          } else if (lang === "hinglish") {
+            askMsg = `Zaroor! Email bhejne ke liye kripya recipient ka email address (jaise \`student@university.edu\`) aur context share karein taaki main turant draft kar sakoon.`;
+          } else {
+            askMsg = `Certainly! To dispatch an official email without guessing, please provide the recipient's email address (e.g. \`student@university.edu\`) and context so I can draft it right away.`;
+          }
+          return { stream: streamOf([...start, ...textParts(askMsg), { type: "finish", finishReason: "stop", usage }]) };
         }
         const result = await sendStudentNotification({
           to: recipientEmail,
@@ -178,7 +207,7 @@ Answer the user's inquiry directly now adhering strictly to their chosen length 
           bodyMarkdown: "Your draft SOP for MSc Advanced Computing has been reviewed by our Senior Admissions Counselor. Please review the attached feedback.",
           urgency: "high",
         });
-        const replyText = `[Email Engine] **Official Communication Dispatched**\n- Recipient: \`${result.recipient}\`\n- Tracking ID: \`#${result.trackingId}\`\n- Status: **${result.deliveryStatus.toUpperCase()}** (Mode: ${result.mode.toUpperCase()})\n- Subject: "${result.subject}"\n- Deliverability: 100% Verified against Anti-Hallucination Gate`;
+        const replyText = `[Email Engine] **Official Communication Dispatched**\n- Recipient: \`${result.recipient}\`\n- Tracking ID: \`#${result.trackingId}\`\n- Status: **${result.deliveryStatus.toUpperCase()}** (Mode: ${result.mode.toUpperCase()})\n- Subject: "${result.subject}"\n- Deliverability: Verified and Logged`;
         return { stream: streamOf([...start, ...textParts(replyText), { type: "finish", finishReason: "stop", usage }]) };
       }
 
@@ -200,16 +229,21 @@ Answer the user's inquiry directly now adhering strictly to their chosen length 
         return { stream: streamOf([...start, ...textParts(replyText), { type: "finish", finishReason: "stop", usage }]) };
       }
 
-      // Call real live Multi-Model Engine (Gemini / Groq) instead of canned text!
+      // Call real live Multi-Model Engine (Gemini / Groq) with Multi-Turn Context!
       let reply = "";
       try {
+        const history = formatConversationTranscript(prompt);
+        const contextualPrompt = history
+          ? `[Conversation Transcript]\n${history}\n\n[Latest User Reply]\n${said}\n\nContinue the conversation based on the transcript above. If the user is responding to a previous question (such as an email recipient, subject, or repository), address that directly. If an email address or necessary detail is still missing, politely ask for it. Always mirror the user's language (Hindi, Hinglish, or English).`
+          : said;
+
         const res = await routeLLMRequest(
-          said,
-          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce. Respond with thorough, high-density, factual, and complete business insight. Provide complete bullet points and full explanations without cutting off mid-sentence.`,
+          contextualPrompt,
+          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Respond contextually to multi-turn dialogue. Never output disconnected generic corporate summaries when answering a follow-up query. Keep language natural, professional, and matching the user's exact tongue.`,
           {
             taskCategory: "synthesis",
             temperature: 0.15,
-            maxTokens: 1500, // Generous token allowance for complete, comprehensive answers
+            maxTokens: 1200,
           }
         );
         reply = res.output;

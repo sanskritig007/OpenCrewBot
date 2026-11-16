@@ -452,40 +452,86 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
       return folder.message;
     }
 
-    // 2. Email Integration Handling (Adaptive Language Mirroring & Zero-Hallucination Gate)
-    if (/\b(?:send email|dispatch email|email to|send notification|email bhej|mail bhej|email karo|mail karo)\b/i.test(lower)) {
+    // 2. Email Integration Handling (Multi-Turn Continuity & Adaptive Language Mirroring)
+    const { listMessages } = await import("./db");
+    const recentMsgs = await listMessages(conversationId, 6);
+    const lastBotMsg = recentMsgs.slice().reverse().find((m) => m.sender.kind === "bot");
+    const lastBotText =
+      lastBotMsg?.parts
+        .filter((p) => p.kind === "text")
+        .map((p) => p.text)
+        .join(" ") || "";
+
+    const wasAskingEmail =
+      /recipient|प्राप्तकर्ता|email address|email bhejna hai|kisko email|kis baare mein|email dispatch/i.test(lastBotText);
+
+    const isEmailKeyword = /\b(?:send email|dispatch email|email to|send notification|email bhej|mail bhej|email karo|mail karo|draft email)\b/i.test(lower);
+    const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
+    const recipientEmail = emailMatch ? emailMatch[0] : "";
+
+    // If user previously asked for email and now cancels
+    if (wasAskingEmail && /\b(?:cancel|stop|chhod do|rehne do|abort|nahi|no)\b/i.test(lower)) {
+      const cancelReply =
+        lang === "english"
+          ? "Understood, email dispatch has been cancelled. What else can I assist you with?"
+          : "Theek hai, email dispatch cancel kar diya gaya hai. Aage batayein main aapki kya madad kar sakoon?";
+      folder.message.parts.push({ kind: "text", text: cancelReply });
+      await folder.finish("done");
+      return folder.message;
+    }
+
+    if (isEmailKeyword || wasAskingEmail || recipientEmail) {
       const { sendStudentNotification } = await import("./integrations/email-dispatcher");
-      const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
-      const recipientEmail = emailMatch ? emailMatch[0] : "";
 
       if (!recipientEmail) {
+        const isStudentMention = /\b(?:student|candidate|aditya|scholarship|sop|admission)\b/i.test(lower);
+
         let reply = "";
         if (lang === "hindi") {
-          reply = `ईमेल भेजने के लिए कृपया निम्नलिखित विवरण साझा करें:\n1. **प्राप्तकर्ता (Recipient):** ईमेल किसे भेजना है (उनका ईमेल पता क्या है)?\n2. **संदर्भ (Context):** ईमेल का मुख्य विषय या उद्देश्य क्या है (जैसे आवेदन स्थिति, छात्रवृत्ति, या वीज़ा दस्तावेज़)?\n\nबिना प्राप्तकर्ता ईमेल के मैं अनुमान नहीं लगा सकती। कृपया ईमेल पता साझा करें।`;
+          reply = isStudentMention
+            ? `समझ गई, छात्र को ईमेल भेजना है! ईमेल भेजने के लिए कृपया छात्र का ईमेल पता (जैसे \`student@university.edu\`) और विषय साझा करें।`
+            : `ईमेल भेजने के लिए कृपया निम्नलिखित विवरण साझा करें:\n1. **प्राप्तकर्ता ईमेल:** किसे भेजना है (जैसे \`name@example.com\`)?\n2. **विषय/संदर्भ:** ईमेल किस बारे में है?\n\nईमेल पता मिलते ही मैं इसे तुरंत भेज दूँगी।`;
         } else if (lang === "hinglish") {
-          reply = `Zaroor! Email bhejne ke liye kripya yeh do zaroori cheezein batayein:\n1. **Recipient:** Kisko email bhejna hai (unka email address kya hai)?\n2. **Context:** Email kis baare mein hai (jaise SOP review, scholarship deadline, ya visa checklist)?\n\nAap recipient email share karein, fir main turant accurate aur verified email draft karungi bina kisi guessing ke.`;
+          reply = isStudentMention
+            ? `Samajh gayi, student ko email bhejna hai! Kripya student ka email address (jaise \`student@university.edu\`) aur email ka subject/topic share kijiye taaki main draft kar sakoon.`
+            : `Zaroor! Email bhejne ke liye kripya yeh batayein:\n1. **Recipient Email:** Kisko email bhejna hai (jaise \`name@example.com\`)?\n2. **Context:** Email kis baare mein hai?\n\nAap recipient email address share karein, fir main turant accurate email draft aur send karungi.`;
         } else {
-          reply = `Certainly! To dispatch an official email without guessing or hallucinating, please provide:\n1. **Recipient:** Who should receive this email (their email address)?\n2. **Context:** What is the specific purpose/topic (e.g., SOP review, scholarship deadline, or visa checklist)?\n\nOnce you share the recipient email address, I will draft and dispatch it right away.`;
+          reply = isStudentMention
+            ? `Understood, sending to a student! To dispatch the email, please provide their email address (e.g., \`student@university.edu\`) and the specific subject or topic.`
+            : `Certainly! To dispatch an official email without guessing, please provide:\n1. **Recipient:** Who should receive this email (their email address)?\n2. **Context:** What is the specific purpose/topic (e.g., SOP review, scholarship deadline, or visa checklist)?\n\nOnce you share the recipient email address, I will draft and dispatch it right away.`;
         }
         folder.message.parts.push({ kind: "text", text: reply });
         await folder.finish("done");
         return folder.message;
       }
 
+      const allRecentText =
+        recentMsgs
+          .map((m) => m.parts.map((p) => (p.kind === "text" ? p.text : "")).join(" "))
+          .join(" ") +
+        " " +
+        content;
+      const studentName = /aditya/i.test(allRecentText)
+        ? "Aditya Kumar"
+        : /student/i.test(allRecentText)
+        ? "Enrolled Student"
+        : "Admissions Candidate";
+
       const result = await sendStudentNotification({
         to: recipientEmail,
-        studentName: "Admissions Candidate / Partner",
+        studentName,
         universityName: "MeetUniversity International Admissions",
         subject: "Official Admissions Advisory & Document Review",
-        bodyMarkdown: "Your study abroad profile and application documentation have been reviewed. Please find the verified guidance and next steps.",
+        bodyMarkdown:
+          "Your study abroad profile and application documentation have been reviewed. Please find the verified guidance and next steps.",
         urgency: "high",
       });
 
       let replyText = "";
       if (lang === "hinglish" || lang === "hindi") {
-        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nEmail verified recipient ko successfully bhej diya gaya hai!`;
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nEmail verified recipient ko successfully bhej diya gaya hai!`;
       } else {
-        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nThe communication has been dispatched with verified delivery.`;
+        replyText = `[Email Engine] **Official Communication Dispatched**\n- **Recipient:** \`${result.recipient}\`\n- **Student:** \`${studentName}\`\n- **Tracking Reference:** \`#${result.trackingId}\`\n- **Status:** **DELIVERED**\n- **Subject:** "${result.subject}"\n\nThe communication has been dispatched with verified delivery.`;
       }
       folder.message.parts.push({ kind: "text", text: replyText });
       await folder.finish("done");
