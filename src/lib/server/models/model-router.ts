@@ -22,6 +22,7 @@ export interface TokenUsageStats {
 // In-memory response cache to guarantee ZERO token waste on duplicate queries
 const responseCache = new Map<string, { output: string; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour cache
+let geminiExhaustedUntil = 0;
 
 export const tokenStats: TokenUsageStats = {
   geminiCalls: 0,
@@ -47,12 +48,12 @@ export async function routeLLMRequest(
     return { output: cached.output, providerUsed: "cache" };
   }
 
-  // 2. Decide Primary Provider based on Task Category (Load Balancing)
-  // - Research / Code / Discovery -> Groq Llama 3.3 (Blazing fast, preserves Gemini quota)
-  // - Synthesis / Multilingual / Financial -> Gemini 2.5 Flash (Superior table & Hinglish reasoning)
+  // 2. Decide Primary Provider based on Task Category & Live Provider Health
   let primaryProvider: "gemini" | "groq" = "gemini";
 
-  if (options.preferredProvider && options.preferredProvider !== "auto") {
+  if (Date.now() < geminiExhaustedUntil) {
+    primaryProvider = "groq";
+  } else if (options.preferredProvider && options.preferredProvider !== "auto") {
     primaryProvider = options.preferredProvider;
   } else if (options.taskCategory === "research" || options.taskCategory === "coding") {
     primaryProvider = "groq";
@@ -61,7 +62,7 @@ export async function routeLLMRequest(
   }
 
   // 3. Execution with Resilient Cross-Provider Fallback
-  const defaultTokens = options.maxTokens ?? 512;
+  const defaultTokens = Math.max(options.maxTokens ?? 2500, 2500);
 
   if (primaryProvider === "groq") {
     try {
@@ -95,7 +96,11 @@ export async function routeLLMRequest(
       responseCache.set(cacheKey, { output, timestamp: Date.now() });
       return { output, providerUsed: "gemini" };
     } catch (geminiErr) {
-      console.warn(`[Router] Gemini error, falling back to Groq:`, geminiErr instanceof Error ? geminiErr.message : geminiErr);
+      const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      if (errMsg.includes("429") || errMsg.includes("quota")) {
+        geminiExhaustedUntil = Date.now() + 10 * 60 * 1000; // 10 minutes auto-route to Groq
+      }
+      console.warn(`[Router] Gemini unavailable, routing instantly to Groq:`, errMsg);
       const output = await generateWithGroq(prompt, {
         systemInstruction,
         temperature: options.temperature ?? 0.15,

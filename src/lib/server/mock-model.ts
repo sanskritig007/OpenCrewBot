@@ -239,11 +239,11 @@ Answer the user's inquiry directly now adhering strictly to their chosen length 
 
         const res = await routeLLMRequest(
           contextualPrompt,
-          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Respond contextually to multi-turn dialogue. Never output disconnected generic corporate summaries when answering a follow-up query. Keep language natural, professional, and matching the user's exact tongue.`,
+          `You are ${botName} in OpenCrewBot 2.0 Autonomous AI Workforce for MeetUniversity. Respond contextually to multi-turn dialogue. Never output disconnected generic corporate summaries when answering a follow-up query. Keep language natural, professional, and matching the user's exact tongue. Structure answers cleanly and always conclude every section and sentence completely without cutting off.`,
           {
             taskCategory: "synthesis",
             temperature: 0.15,
-            maxTokens: 1200,
+            maxTokens: 2500,
           }
         );
         reply = res.output;

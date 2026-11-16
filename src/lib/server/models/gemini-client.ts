@@ -80,20 +80,17 @@ export async function generateWithGemini(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(7000),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    // If 503 (Temporary High Demand) or model unavailable, wait briefly and fallback to gemini-flash-latest
-    if (response.status === 503 || response.status === 429) {
-      if (model !== "gemini-flash-latest") {
-        console.warn(`[Gemini] ${response.status} high demand on ${model}, retrying with gemini-flash-latest...`);
-        await new Promise((r) => setTimeout(r, 1200));
-        return generateWithGemini(prompt, { ...options, model: "gemini-flash-latest" });
-      }
+    if (response.status === 429) {
+      throw new Error(`Gemini rate limit / quota exceeded (429). Immediate dual-engine failover to Groq.`);
     }
-    if (model !== "gemini-flash-latest") {
+    // If 503 (Temporary High Demand), retry once with fast model
+    if (response.status === 503 && model !== "gemini-flash-latest") {
+      console.warn(`[Gemini] 503 high demand on ${model}, retrying with gemini-flash-latest...`);
       return generateWithGemini(prompt, { ...options, model: "gemini-flash-latest" });
     }
     throw new Error(`Gemini API error (${response.status}): ${JSON.stringify(errorData)}`);

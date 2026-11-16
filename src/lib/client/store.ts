@@ -129,21 +129,23 @@ export function reducer(state: AppState = initialState, action: Action): AppStat
 }
 
 function applyEvent(state: AppState, event: ServerEvent): AppState {
-  if (!state) return initialState;
+  if (!state || !state.transcripts) return initialState;
   switch (event.type) {
     case "message": {
       const { message } = event;
-      const list = state.transcripts?.[message.conversationId];
+      const transcripts = state.transcripts ?? {};
+      const list = transcripts[message.conversationId] ?? [];
       const isNewReply = message.role === "bot" && message.status !== "streaming" && !state.counted?.[message.id];
       return {
         ...state,
-        transcripts: list ? { ...state.transcripts, [message.conversationId]: upsert(list, message) } : state.transcripts,
+        transcripts: { ...transcripts, [message.conversationId]: upsert(list, message) },
         summaries: touchSummary(state, message, isNewReply),
-        counted: isNewReply ? { ...state.counted, [message.id]: true } : state.counted,
+        counted: isNewReply ? { ...(state.counted ?? {}), [message.id]: true } : (state.counted ?? {}),
       };
     }
     case "delta": {
-      const list = state.transcripts?.[event.conversationId];
+      const transcripts = state.transcripts ?? {};
+      const list = transcripts[event.conversationId];
       if (!list) return state;
       const i = list.findIndex((m) => m.id === event.messageId);
       if (i === -1) return state;
@@ -154,7 +156,7 @@ function applyEvent(state: AppState, event: ServerEvent): AppState {
       parts[event.partIndex] = { ...part, text: part.text + event.delta };
       const next = list.slice();
       next[i] = { ...message, parts };
-      return { ...state, transcripts: { ...state.transcripts, [event.conversationId]: next } };
+      return { ...state, transcripts: { ...transcripts, [event.conversationId]: next } };
     }
     case "running": {
       const prev = state.summaries?.[event.conversationId] ?? { id: event.conversationId, running: [], unread: 0 };

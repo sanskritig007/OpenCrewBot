@@ -36,24 +36,26 @@ export async function generateWithGroq(
     throw new Error("GROQ_API_KEY is not configured in .env");
   }
 
-  const model = options.model || "qwen/qwen3.8-27b";
+  const model = options.model || "openai/gpt-oss-20b";
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   const messages: Array<{ role: string; content: string }> = [];
 
-  if (options.systemInstruction) {
-    messages.push({
-      role: "system",
-      content: options.systemInstruction.trim(),
-    });
-  }
+  const baseSystem = options.systemInstruction ? options.systemInstruction.trim() : "";
+  const completionDirective = "CRITICAL DIRECTIVE: Always provide complete responses. Finish all sentences, bullet points, tables, and sections completely. Never truncate or cut off mid-thought.";
+  const combinedSystem = baseSystem ? `${baseSystem}\n\n${completionDirective}` : completionDirective;
+
+  messages.push({
+    role: "system",
+    content: combinedSystem,
+  });
 
   messages.push({
     role: "user",
     content: prompt.trim(),
   });
 
-  const maxTokens = options.maxTokens ?? 512; // 512 tokens preserves OTPM within the 1000 limit
+  const maxTokens = options.maxTokens ?? 2500;
 
   const response = await fetch(url, {
     method: "POST",
@@ -67,15 +69,15 @@ export async function generateWithGroq(
       temperature: options.temperature ?? 0.15, // Deterministic greedy sampling
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(20000),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    // If rate-limited (429) on primary model, fallback to alternative fast model (openai/gpt-oss-20b)
-    if (response.status === 429 && model !== "openai/gpt-oss-20b") {
-      console.warn(`[Groq] Rate limit hit on ${model}, falling back to openai/gpt-oss-20b...`);
-      return generateWithGroq(prompt, { ...options, model: "openai/gpt-oss-20b", maxTokens: 400 });
+    // If rate-limited (429) or model issue on primary model, fallback to alternative fast model
+    if ((response.status === 429 || response.status === 404) && model !== "openai/gpt-oss-120b") {
+      console.warn(`[Groq] Issue on ${model} (${response.status}), falling back to openai/gpt-oss-120b...`);
+      return generateWithGroq(prompt, { ...options, model: "openai/gpt-oss-120b", maxTokens: Math.max(maxTokens, 2000) });
     }
     throw new Error(`Groq API error (${response.status}): ${errorText}`);
   }
