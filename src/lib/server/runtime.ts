@@ -563,6 +563,60 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
       await folder.finish("done");
       return folder.message;
     }
+
+    // 4. Module I: Scheduled Workflows & Background Automation
+    if (
+      /\b(?:scheduled workflows|list workflows|show automations|automations|scheduled jobs|schedule dikhao|cron jobs|workflow dikhao)\b/i.test(
+        lower
+      )
+    ) {
+      const { listWorkflows } = await import("./scheduler/workflow-scheduler");
+      const list = await listWorkflows();
+      let text = "";
+      if (lang === "english") {
+        text =
+          `### ⏰ Autonomous Scheduled Workflows (Module I)\n\nHere are the active background automations running for MeetUniversity:\n\n` +
+          list
+            .map(
+              (wf) =>
+                `- **${wf.title}** (\`${wf.id}\`)\n  - **Schedule:** \`${wf.cronSchedule}\` | **Target:** \`${wf.targetType}:${wf.targetId}\`\n  - **Status:** **${wf.status.toUpperCase()}** | **Total Runs:** ${wf.runCount}\n  - **Directive:** *"${wf.prompt.slice(0, 80)}..."*`
+            )
+            .join("\n\n") +
+          `\n\n*To trigger any workflow manually now, type \`run workflow <id>\` (e.g. \`run workflow job-market-sweep\`).*`;
+      } else {
+        text =
+          `### ⏰ Autonomous Scheduled Workflows (Module I)\n\nMeetUniversity ke liye configured background automations yeh hain:\n\n` +
+          list
+            .map(
+              (wf) =>
+                `- **${wf.title}** (\`${wf.id}\`)\n  - **Schedule:** \`${wf.cronSchedule}\` | **Target:** \`${wf.targetType}:${wf.targetId}\`\n  - **Status:** **${wf.status.toUpperCase()}** | **Total Runs:** ${wf.runCount}\n  - **Directive:** *"${wf.prompt.slice(0, 80)}..."*`
+            )
+            .join("\n\n") +
+          `\n\n*Kisi bhi workflow ko abhi run karne ke liye likhein \`run workflow <id>\` (jaise \`run workflow job-market-sweep\`).*`;
+      }
+      folder.message.parts.push({ kind: "text", text });
+      await folder.finish("done");
+      return folder.message;
+    }
+
+    const triggerMatch =
+      content.match(/\b(?:run workflow|trigger workflow|start workflow|execute workflow|chalao workflow)\s+([a-zA-Z0-9_-]+)/i) ||
+      (lower.includes("competitor sweep") ? [null, "job-market-sweep"] : null) ||
+      (lower.includes("admissions audit") ? [null, "job-admissions-audit"] : null) ||
+      (lower.includes("github sentinel") ? [null, "job-github-sentinel"] : null);
+
+    if (triggerMatch && triggerMatch[1]) {
+      const wfId = triggerMatch[1].trim();
+      const { triggerWorkflow } = await import("./scheduler/workflow-scheduler");
+      const res = await triggerWorkflow(wfId);
+      const replyText =
+        lang === "english"
+          ? `[Scheduler Engine] **Scheduled Workflow Triggered Successfully**\n- **Title:** "${res.title}" (\`${res.workflowId}\`)\n- **Target:** \`${res.targetType}:${res.targetId}\`\n- **Triggered At:** \`${new Date(res.triggeredAt).toLocaleTimeString()}\`\n- **Status:** **${res.status.toUpperCase()}**\n\nThe autonomous background task has been dispatched to ${res.targetId}!`
+          : `[Scheduler Engine] **Scheduled Workflow Safalta Se Trigger Ho Gaya**\n- **Title:** "${res.title}" (\`${res.workflowId}\`)\n- **Target:** \`${res.targetType}:${res.targetId}\`\n- **Triggered At:** \`${new Date(res.triggeredAt).toLocaleTimeString()}\`\n- **Status:** **${res.status.toUpperCase()}**\n\nAutonomous background task \`${res.targetId}\` ko bhej diya gaya hai!`;
+      folder.message.parts.push({ kind: "text", text: replyText });
+      await folder.finish("done");
+      return folder.message;
+    }
   } catch (err) {
     console.error("[Runtime] Integration execution error:", err);
   } finally {
