@@ -166,11 +166,16 @@ async function sessionFor(bot: Bot, conversationId: ConversationId): Promise<Ses
   if (cached && cached.thread.getId() === threadId) return cached;
   const session = await runtime.controller.createSession({ resourceId: OWNER_ID, scope: conversationId, threadId });
   await session.permissions.setForCategory({ category: "read", policy: "allow" });
-  await session.permissions.setForCategory({ category: "edit", policy: "allow" });
   await session.permissions.setForCategory({ category: "other", policy: "allow" });
-  // Connected apps and MCP servers act on real accounts: ask first unless the bot has full access.
-  await session.permissions.setForCategory({ category: "mcp", policy: bot.approval === "full" ? "allow" : "ask" });
-  await session.permissions.setForCategory({ category: "execute", policy: bot.approval === "full" ? "allow" : "ask" });
+  // 3-Tier Policy Setup (Module G):
+  // - 'full': All tools run autonomously.
+  // - 'controlled': Read & memory edits allowed; external executions/MCP ask first.
+  // - 'ask': Strict human-in-the-loop: all mutations (edits, external executions, MCP) ask first.
+  const editPolicy = bot.approval === "ask" ? "ask" : "allow";
+  const executePolicy = bot.approval === "full" ? "allow" : "ask";
+  await session.permissions.setForCategory({ category: "edit", policy: editPolicy });
+  await session.permissions.setForCategory({ category: "mcp", policy: executePolicy });
+  await session.permissions.setForCategory({ category: "execute", policy: executePolicy });
   state.sessions.set(k, session);
   return session;
 }
@@ -412,6 +417,15 @@ async function executeTurn({ bot, conversationId, content, route }: TurnRequest)
 export async function respondToApproval(conversationId: ConversationId, botId: string, toolCallId: string, approve: boolean) {
   const session = state.sessions.get(key(conversationId, botId));
   if (!session) throw new Error("That request is no longer waiting. The bot may have restarted.");
+
+  // Log decision to audit trail (Module G)
+  try {
+    const { resolveApproval } = await import("./approvals/approval-centre.ts");
+    await resolveApproval(toolCallId, approve ? "approved" : "rejected");
+  } catch (err) {
+    console.warn("[Runtime] Audit log recording failed:", err);
+  }
+
   await session.respondToToolApproval({ toolCallId, decision: approve ? "approve" : "decline" });
 }
 

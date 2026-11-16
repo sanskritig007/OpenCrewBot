@@ -10,7 +10,7 @@ import type { Bot, ChatMessage, ConversationId, Room } from "../shared/types.ts"
 const g = globalThis as unknown as { __opencrewbotDb?: { url: string; schema?: number; client: Promise<Client> } };
 
 /** Bump when a table is added, so a hot-reloaded server re-runs the CREATE statements. */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 async function open(): Promise<Client> {
   const db = createClient({ url: APP_DB_URL });
@@ -31,6 +31,19 @@ async function open(): Promise<Client> {
         generation INTEGER NOT NULL DEFAULT 0,
         last_read_at TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS approval_audit_log (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        bot_id TEXT NOT NULL,
+        action_name TEXT NOT NULL,
+        risk_level TEXT NOT NULL,
+        tier TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        parameters TEXT NOT NULL,
+        operator_notes TEXT,
+        created_at TEXT NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS approval_audit_by_conversation ON approval_audit_log (conversation_id, created_at)",
     ],
     "write",
   );
