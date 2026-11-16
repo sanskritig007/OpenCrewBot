@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { Brain, Check, ChevronRight, Code2, Globe, Loader2, MousePointerClick, NotebookPen, ShieldAlert, X } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "@/lib/client/api";
@@ -10,6 +10,8 @@ import { formatCost, formatTokens, timeLabel } from "@/lib/client/format";
 import type { Bot, ChatMessage, Part, Source } from "@/lib/shared/types";
 import { useApp } from "./OpenCrewBotApp";
 import { BotAvatar, Button, inputClass } from "./ui";
+
+const finishedTypewriterMessages = new Set<string>();
 
 const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
@@ -26,6 +28,73 @@ const Markdown = memo(function Markdown({ text }: { text: string }) {
       >
         {text}
       </ReactMarkdown>
+    </div>
+  );
+});
+
+const StreamingMarkdown = memo(function StreamingMarkdown({
+  text,
+  streaming,
+  messageId,
+  isRecent,
+}: {
+  text: string;
+  streaming: boolean;
+  messageId: string;
+  isRecent: boolean;
+}) {
+  const shouldAnimate = isRecent && !finishedTypewriterMessages.has(messageId);
+  const words = useMemo(() => text.match(/\S+\s*|\n+/g) ?? (text ? [text] : []), [text]);
+  const [visibleCount, setVisibleCount] = useState(() => (shouldAnimate ? Math.min(2, words.length) : words.length));
+
+  useEffect(() => {
+    if (!shouldAnimate) {
+      setVisibleCount(words.length);
+      return;
+    }
+
+    if (visibleCount >= words.length) {
+      if (!streaming) {
+        finishedTypewriterMessages.add(messageId);
+      }
+      return;
+    }
+
+    const remaining = words.length - visibleCount;
+    // Dynamic typing speed: smooth natural cadence (~22ms per word), accelerating if backlog is large
+    const step = remaining > 80 ? 5 : remaining > 30 ? 2 : 1;
+    const intervalTime = remaining > 80 ? 10 : remaining > 30 ? 16 : 22;
+
+    const timer = setTimeout(() => {
+      setVisibleCount((c) => Math.min(words.length, c + step));
+    }, intervalTime);
+
+    return () => clearTimeout(timer);
+  }, [shouldAnimate, visibleCount, words.length, streaming, messageId]);
+
+  const isTyping = shouldAnimate && visibleCount < words.length;
+  const displayedText = shouldAnimate ? words.slice(0, visibleCount).join("") : text;
+
+  return (
+    <div className="prose-chat text-[15px]">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {displayedText}
+      </ReactMarkdown>
+      {isTyping && (
+        <span
+          className="inline-block w-1.5 h-3.5 ml-1 bg-current align-middle animate-pulse opacity-75 rounded-xs"
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 });
@@ -251,6 +320,9 @@ export function MessageItem({ message, bot, showAuthor }: { message: ChatMessage
   }
 
   const streaming = message.status === "streaming";
+  const isRecent =
+    message.role === "bot" &&
+    (message.status === "streaming" || Date.now() - new Date(message.createdAt).getTime() < 15_000);
   const allSources = message.parts.flatMap((p) => (p.kind === "tool" && p.sources ? p.sources : []));
   const uniqueSources = allSources.filter((s, i) => allSources.findIndex((x) => x.url === s.url) === i);
   const lastIndex = message.parts.length - 1;
@@ -297,7 +369,13 @@ export function MessageItem({ message, bot, showAuthor }: { message: ChatMessage
             <div key={b} className="w-fit max-w-full min-w-0 space-y-2.5 rounded-[22px] bg-raised px-4 py-3">
               {block.parts.map(({ part, index }) =>
                 part.kind === "text" ? (
-                  <Markdown key={index} text={part.text} />
+                  <StreamingMarkdown
+                    key={index}
+                    text={part.text}
+                    streaming={streaming}
+                    messageId={`${message.id}-${index}`}
+                    isRecent={isRecent}
+                  />
                 ) : part.kind === "reasoning" ? (
                   <Reasoning key={index} text={part.text} live={streaming && index === lastIndex} />
                 ) : null,
